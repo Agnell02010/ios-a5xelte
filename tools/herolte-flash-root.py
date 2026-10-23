@@ -19,6 +19,9 @@ import sys
 import tempfile
 import time
 
+# TWRP's dd rejects conv=fsync ("conv option disabled"), so none is used; each
+# chunk is read back and compared, and a final `sync` flushes everything.
+
 DEV = '/dev/block/platform/155a0000.ufs/by-name/USERDATA'
 CHUNK = 64 << 20
 MIB = 1 << 20
@@ -89,13 +92,20 @@ def main():
             return
         n = (end - first) * CHUNK // MIB
         adb(['shell', f'dd if=/dev/zero of={DEV} bs=1048576 seek={first * CHUNK // MIB} '
-             f'count={n} conv=fsync 2>/dev/null'], a.adb)
+             f'count={n} 2>/dev/null'], a.adb)
         for i in range(first, end):
             state.write(f'{i}\n')
         state.flush()
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # A Windows adb.exe started from WSL cannot read Linux paths: stage the chunk
+    # under /mnt/c (HEROLTE_TMP, default /mnt/c/Users/Public) and hand adb the
+    # Windows spelling from wslpath -w.
+    win_adb = a.adb.lower().endswith('.exe')
+    tmp_base = os.environ.get('HEROLTE_TMP', '/mnt/c/Users/Public') if win_adb else None
+    with tempfile.TemporaryDirectory(dir=tmp_base) as tmp:
         local = os.path.join(tmp, 'chunk.gz')
+        local_arg = subprocess.check_output(['wslpath', '-w', local], text=True).strip() \
+            if win_adb else local
         while True:
             data = stream.read(CHUNK)
             if not data:
@@ -125,10 +135,10 @@ def main():
             if index not in done:
                 with gzip.open(local, 'wb', compresslevel=1) as f:
                     f.write(data)
-                adb(['push', local, '/tmp/chunk.gz'], a.adb)
+                adb(['push', local_arg, '/tmp/chunk.gz'], a.adb)
                 seek, count = offset // MIB, (len(data) + MIB - 1) // MIB
                 out = adb(['shell', f'gzip -dc /tmp/chunk.gz | dd of={DEV} bs=1048576 '
-                           f'seek={seek} conv=fsync 2>&1; rm -f /tmp/chunk.gz'], a.adb)
+                           f'seek={seek} 2>&1; rm -f /tmp/chunk.gz'], a.adb)
                 back = adb(['shell', f'dd if={DEV} bs=1048576 skip={seek} count={count} '
                             f'2>/dev/null | head -c {len(data)} | sha256sum'], a.adb).split()[0]
                 want = hashlib.sha256(data).hexdigest()
