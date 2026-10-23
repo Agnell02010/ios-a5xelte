@@ -42,9 +42,13 @@ BOOT_MANIFEST_HASH = hashlib.sha384(b'sweet boot manifest').digest()
 #   tools/remotezip.py URL DeviceTree.d22ap.im4p DIR
 #   ipsw img4 im4p extract DIR/Firmware/all_flash/DeviceTree.d22ap.im4p -o d22ap.adt
 D22AP_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../research/ipsw-x/d22ap.adt')
+# Callers for another iPhone (tools/mkadt_herolte.py: iPhone 8 Plus) point this
+# at that device's real tree before build().
+PRODUCT_ADT = D22AP_ADT
 
 
-def d22ap_product(path=D22AP_ADT):
+def d22ap_product(path=None):
+    path = path or PRODUCT_ADT
     """/product properties of the real D22AP tree, without the syscfg
     placeholders iBoot would fill in (flag bit set) and the node bookkeeping."""
     if not os.path.exists(path):

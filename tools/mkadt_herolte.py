@@ -18,6 +18,30 @@ DRAM_SIZE = 0x20000000      # 512 MiB, ends below TIMA at 0xb1000000
 SOC_BASE = 0x10000000       # arm-io ranges base; child regs are relative
 FB_BASE, FB_WIDTH, FB_HEIGHT = 0xe2a00000, 1440, 2560
 
+# Userland identity. Default: iPhone 8 Plus (iPhone10,2 / D21AP, the
+# "iPhone 5.5" IPSW). HEROLTE_DEVICE=x selects the donor's iPhone X
+# (iPhone10,3 / D22AP). The real device tree (research/ipsw-x/<board>.adt,
+# extracted by the ios-root workflow) supplies /product and, when present,
+# the /buttons home-button-type.
+DEVICES = {
+    '8plus': dict(board='D21AP', model='iPhone10,2', target='D21', home_button=True),
+    'x': dict(board='D22AP', model='iPhone10,3', target='D22', home_button=False),
+}
+DEVICE = DEVICES[os.environ.get('HEROLTE_DEVICE', '8plus')]
+REAL_ADT = Path(__file__).resolve().parent.parent / 'research' / 'ipsw-x' / (DEVICE['board'].lower() + '.adt')
+
+
+def real_home_button_type(path):
+    """home-button-type of the real device's /buttons node, or None."""
+    if not path.exists():
+        return None
+    root, _ = adt.parse(path.read_bytes())
+    for c in root.children:
+        props = dict((k, v) for k, f, v in c.props)
+        if props.get('name') == b'buttons\0' and 'home-button-type' in props:
+            return int.from_bytes(props['home-button-type'][:4], 'little')
+    return None
+
 
 def set_prop(node, name, value):
     for i, (key, flags, _) in enumerate(node.props):
@@ -35,14 +59,28 @@ def child(node, name):
 
 
 def build():
+    mkadt.PRODUCT_ADT = str(REAL_ADT)
     root = mkadt.build(seed=os.urandom(64), qemu=True)
-    # The userland is the iPhone X IPSW (iPhone10,3 / D22AP), like the donor:
+    # The userland is an iPhone IPSW (DEVICE above; the donor used the X):
     # compatible[0] is hw.model/hw.target, model is hw.machine. The donor's
     # /buttons stays (home-button-type 2: gesture navigation, no Home key).
     # 'samsung,a5xelte' keeps the shared SweetPlatformExpert IONameMatch.
-    set_prop(root, 'compatible', mkadt.cstr('D22AP') + mkadt.cstr('iPhone10,3') +
+    set_prop(root, 'compatible', mkadt.cstr(DEVICE['board']) + mkadt.cstr(DEVICE['model']) +
              mkadt.cstr('samsung,a5xelte') + mkadt.cstr('samsung,herolte') +
              mkadt.cstr('samsung,exynos8890') + mkadt.cstr('AppleARM'))
+    # mkadt.build() hard-codes the iPhone X for these three.
+    set_prop(root, 'model', mkadt.cstr(DEVICE['model']))
+    set_prop(root, 'target-type', mkadt.cstr(DEVICE['target']))
+    set_prop(root, 'target-sub-type', mkadt.cstr(DEVICE['board']))
+    if DEVICE['home_button']:
+        # The S7's mechanical Home key (GPA0-5, patch 0210) is the Home button:
+        # same approach as mkadt_a5xelte.py. The value comes from the real tree.
+        buttons = child(root, 'buttons')
+        real = real_home_button_type(REAL_ADT)
+        print(f'{DEVICE["board"]}: /buttons home-button-type in {REAL_ADT.name}: {real}')
+        set_prop(buttons, 'home-button-type', mkadt.u32(0 if real is None else real))
+        set_prop(buttons, 'button-names', b''.join(mkadt.cstr(n) for n in
+                                           ('volup', 'voldown', 'hold', 'home')))
     chosen = child(root, 'chosen')
     set_prop(chosen, 'dram-base', mkadt.u64(DRAM_BASE))
     set_prop(chosen, 'dram-size', mkadt.u64(DRAM_SIZE))
