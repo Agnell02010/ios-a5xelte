@@ -1,0 +1,33 @@
+diff --git a/iokit/Kernel/arm/SweetCPU.cpp b/iokit/Kernel/arm/SweetCPU.cpp
+--- a/iokit/Kernel/arm/SweetCPU.cpp
++++ b/iokit/Kernel/arm/SweetCPU.cpp
+@@ -22,2 +22,5 @@
+ extern "C" boolean_t sweet_cpu_signal_is_enabled(unsigned int cpu);
++/* HEROLTE: low-RAM trampoline for CPU_ON when the XNU image is above 4 GiB. */
++extern "C" vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
++#define SWEET_LOW_TRAMPOLINE_PA 0xaffff000UL
+ #if defined(A5XELTE)
+@@ -72,2 +75,23 @@
+ 	__builtin_arm_dsb(DSB_SY);
++	/*
++	 * HEROLTE high-RAM: S-Boot's PSCI answers CPU_ON with rc=0 for an entry >= 4 GiB
++	 * but the core never arrives (entry_pa 0x88142a000: "NOT alive after 5s").
++	 * Enter through a 16-byte trampoline in low RAM (end of the old XNU window,
++	 * unused in high mode) that loads the real 64-bit entry and jumps to it.
++	 * Written through a device mapping: the secondary starts with MMU/caches off.
++	 */
++	if (((uint64_t)entry >> 32) != 0) {
++		volatile uint32_t *tramp = (volatile uint32_t *)ml_io_map(SWEET_LOW_TRAMPOLINE_PA, 0x1000);
++		if (tramp == NULL) {
++			panic(CPU_PORT_NAME " CPU: cpu=%u cannot map the PSCI trampoline", getCPUNumber());
++		}
++		tramp[0] = 0x58000050;	/* ldr x16, #8 */
++		tramp[1] = 0xd61f0200;	/* br  x16 */
++		tramp[2] = (uint32_t)(uint64_t)entry;
++		tramp[3] = (uint32_t)((uint64_t)entry >> 32);
++		__builtin_arm_dsb(DSB_SY);
++		IOLog(CPU_PORT_NAME " CPU: cpu=%u CPU_ON via low trampoline 0x%lx -> 0x%llx\n",
++		    getCPUNumber(), (unsigned long)SWEET_LOW_TRAMPOLINE_PA, (uint64_t)entry);
++		entry = (vm_offset_t)SWEET_LOW_TRAMPOLINE_PA;
++	}
+ 	int32_t rc = sweet_psci_cpu_on(cpu->phys_id, entry, getCPUNumber());
