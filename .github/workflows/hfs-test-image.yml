@@ -21,7 +21,7 @@ jobs:
           hdiutil create -size 32m -fs "Case-sensitive Journaled HFS+" \
             -volname GREATEST -layout NONE -type UDIF -o hfstest
           dev=$(hdiutil attach -nobrowse -owners on hfstest.dmg | awk '/GREATEST/ {print $1}')
-          vol=/Volumes/HEROTEST
+          vol=/Volumes/GREATEST
           sudo mkdir -p "$vol/private/var" "$vol/sbin"
           echo "greatlte root mount test $(date -u +%FT%TZ)" | sudo tee "$vol/GREATLTE_ROOT_TEST" >/dev/null
           ls -la "$vol"
