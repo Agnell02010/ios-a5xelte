@@ -82,12 +82,50 @@ The boot CPU is a Cortex-A53 at MPIDR `0x100`; S-Boot loads the Image at
   `sweet_libpthread/` and `sweet_hfs/` trees.
 - Workflow now uploads `build.log` as the `xnu-buildlog` artifact on failure
   and reports real compile errors (not only skipped patches) as annotations.
+- Run `41085604027` built `kernel.development.greatlte` (sha256
+  `74d35dffa2450690335d39e176bf4249f1c68bbc85e1a03bb08f604b23dc7b8e`).
+  The one-command host pipeline wraps it in a SWEETXNU payload and packs
+  `xnu-boot.img` (18,282,512 bytes) into the 40 MiB BOOT slot.
+
+### Phase 2 XNU boot (device-verified)
+
+The first flash reused a stale loader (`HEROLTE XNU LOADER`, old 512 MiB
+window) and failed with `LOADER FAIL: PAYLOAD RAM OUTSIDE WINDOW`; rebuilding
+`shim/greatlte` with `CROSS=aarch64-none-elf-` produced `GREATLTE XNU
+LOADER` with the `0x92400000`..`0xb1000000` window. The corrected image
+(`sha256 00aa9eb6…f398a9`, then `b239c32f…4969a` with `startup_debug=1`)
+booted XNU on the phone. Console evidence:
+
+- `Darwin Kernel Version 22.6.0: … root:xnu-8796.141.3~6/RELEASE_ARM64_T8010`;
+- platform expert, AppleKeyStore, watchdog, SURF, HID (buttons and touch);
+- `SWEET CPU: requested=1 selected=1`, `cpu=0 … came alive: SGI OK`,
+  `1/1 CPUs initialized, SGI verified`;
+- `SWEET FB: AppleCLCD 1440x2960 stride 5760 at 0xcc000000 … presented as
+  1125x2436`, `requested 30 Hz, effective 30 Hz`;
+- AMFI, Sandbox, HFS registered; `vminit: done [64 MB total pool size,
+  (42/21) split]`; Skywalk SUN16 self-tests `PASSED`; all created kernel
+  threads scheduled; `vm_region_init …`; `running self-tests`.
+
+This reaches the Phase 2 success criterion (XNU C console, VM bootstrap,
+scheduler, one core). The expected next stop is the root-device wait
+(`Waiting on <dict>IOProviderClass IOMedia, Content Apple_HFS</dict>`), which
+is normal until a storage driver exists. The Note 8 panel is physically
+damaged at the bottom, so the last console lines are hard to read; patch
+`0220-greatlte-fbcon-top.patch` clamps the fbcon to the top 2400 of 2960
+pixels (75 rows at `FBCON_SCALE 2`) to keep the newest output readable.
+Run `41092209216` rebuilt the kernel with that patch (sha256
+`b684186c3dadc7e8bea2288a130b6619fa9bacb0fb251bbb74034f48a3aa7d58`) and
+produced the next diagnostic image (`xnu-boot.img`, sha256
+`55e1f73217b9bee64d7c3ff16f1c728f24b16c2474510f09b0a5caae5e5ecb5c`).
 
 ### Claims
 
 - Device-verified: probe output and all live-FDT values above; stock
-  partition backups exist.
+  partition backups exist; XNU boots to the Phase 2 milestone and drives the
+  panel through its fbcon.
 - Build-verified: probe.Image and xnu_boot.Image compile; greatlte ADT
-  serializes. The GREATLTE kernel patch has not been compiled yet.
-- Not verified: XNU boot on greatlte, storage, display services, touch,
-  keys, iOS userland.
+  serializes; `kernel.development.greatlte` builds in CI; payload and ADT
+  survive packing byte-identically.
+- Not verified: the final root-wait line (hidden by the damaged panel until
+  the 0220 console build), storage, display services, touch, keys, iOS
+  userland.
