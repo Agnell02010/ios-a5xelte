@@ -1,5 +1,8 @@
 # device dumps: persist/modemst/fsg hold IMEI + calibration; live DT holds the serial
 backup/
+greatlte-preflight.txt
+# generated Apple device trees (the real D22AP tree stays in research/)
+*.adt
 dtb/
 recovery/
 # third-party/Apple sources fetched for reading

@@ -96,16 +96,24 @@ def main():
     if rc != 0:
         print(f"adb failed: {err}")
         return 2
-    if "device " not in devices and "\tdevice" not in devices:
-        print("No adb device attached. Connect the phone, enable USB debugging")
-        print("(LineageOS) or use TWRP, then accept the authorization prompt.")
+
+    usable = []
+    for line in devices.splitlines()[1:]:
+        fields = line.split()
+        if len(fields) >= 2 and fields[1] in ("device", "recovery"):
+            usable.append((fields[0], fields[1]))
+
+    if not usable:
+        print("No usable adb device attached.")
+        print("Connect the phone and enable USB debugging (LineageOS), or boot")
+        print("TWRP (adb state 'recovery'), then accept the authorization prompt.")
         print(devices)
         return 1
 
     lines = [
-        "greatlte preflight report",
-        f"generated: {datetime.datetime.now().isoformat(timespec='seconds')}",
-        f"host: {sys.platform}",
+        "greatlte preflight report\n",
+        f"generated: {datetime.datetime.now().isoformat(timespec='seconds')}\n",
+        f"host: {sys.platform}\n",
         "",
         section("adb devices", devices),
     ]
@@ -126,7 +134,11 @@ def main():
         lines.append(section(title, body))
 
     by_name = ""
+    by_name_dir = ""
     for title, command in SHELL_COMMANDS:
+        if title == "by-name dirs":
+            _, by_name_dir, _ = adb_shell(command)
+            by_name_dir = by_name_dir.splitlines()[0].strip() if by_name_dir else ""
         if title == "by-name entries":
             _, by_name, _ = adb_shell(command)
 
@@ -138,20 +150,25 @@ def main():
     print()
     print("summary:")
     for key in ("ro.product.model", "ro.product.device", "ro.board.platform",
-                "ro.build.version.release", "ro.boot.flash.locked"):
+                "ro.hardware", "ro.build.version.release", "ro.boot.flash.locked"):
         print(f"  {key}: {props.get(key) or '(empty)'}")
 
     warnings = []
     if props.get("ro.product.device") != "greatlte":
         warnings.append("ro.product.device is not greatlte; check the model.")
-    if props.get("ro.board.platform") != "exynos8895":
-        warnings.append("ro.board.platform is not exynos8895; this is not the Exynos Note 8.")
+
+    platform = (props.get("ro.board.platform") or "").strip()
+    hardware = (props.get("ro.hardware") or "").strip()
+    if platform and platform != "exynos8895" and "exynos8895" not in hardware.lower():
+        warnings.append("platform is not exynos8895; this is not the Exynos Note 8.")
+    if not platform and "exynos8895" not in hardware.lower():
+        warnings.append("could not confirm exynos8895 from ro.board.platform/ro.hardware.")
     if props.get("ro.boot.flash.locked") not in ("0", ""):
         warnings.append("bootloader may be locked (ro.boot.flash.locked is not 0).")
 
     boot_line = ""
     for line in by_name.splitlines():
-        if "/BOOT" in line or " BOOT" in line:
+        if " BOOT ->" in line or line.strip().startswith("BOOT "):
             boot_line = line
             break
 
@@ -164,9 +181,12 @@ def main():
     print()
     if boot_line:
         fields = boot_line.split()
-        boot_path = fields[-1] if fields else ""
+        target = fields[-1] if fields else ""
+        boot_path = f"{by_name_dir}/BOOT" if by_name_dir else target
         print("BOOT candidate from by-name:")
         print(f"  {boot_path}")
+        if target:
+            print(f"  target: {target}")
         print("Save it from TWRP (never overwrite it without a copy):")
         print(f"  adb shell dd if={boot_path} of=/sdcard/boot-stock.img")
         print("  adb pull /sdcard/boot-stock.img")

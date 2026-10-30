@@ -1,9 +1,10 @@
 # greatlte (SM-N950F/FD, Exynos 8895): XNU / iOS 16 bring-up plan
 
-Status: **planning + hardware inventory only.** No greatlte code has run on a
-phone yet. The reference implementation is the `herolte` branch (Galaxy S7,
-Exynos 8890), which reaches the iOS 16.7.16 "Hello" setup screen with touch and
-buttons.
+Status: **Phase 1 complete; Phase 2 in progress.** The greatlte probe ran on
+the phone and printed the S-Boot handoff. The XNU loader, ADT and `GREATLTE`
+kernel target are written; the first XNU build/boot is next. The reference
+implementation is the `herolte` branch (Galaxy S7, Exynos 8890), which reaches
+the iOS 16.7.16 "Hello" setup screen with touch and buttons.
 
 ## Scope and non-goals
 
@@ -20,7 +21,7 @@ buttons.
 - **Not** a daily driver. No GPU, Wi-Fi, Bluetooth, modem, audio, camera,
   sensors, real battery reporting or sleep. Rendering is on the CPU.
 
-## Hardware map (from public sources, not yet device-verified)
+## Hardware map (measured on the phone unless noted)
 
 Sources:
 
@@ -35,17 +36,19 @@ Sources:
 | Item | greatlte | Confidence / action |
 | --- | --- | --- |
 | SoC | Exynos 8895: 4x Cortex-A53 + 4x Mongoose M2 | From DTS |
-| Boot CPU | Cortex-A53, MPIDR `0x100`..`0x103` | DTS `cpu@100`; verify with probe |
-| Other cluster | Mongoose M2, MPIDR `0x0`..`0x3` | Leave unused initially, like herolte |
+| Boot CPU | Cortex-A53, MPIDR `0x100`, MIDR `0x410FD034` | Probe + live FDT |
+| Other cluster | Mongoose M2, MPIDR `0x0`..`0x3` | Live FDT; leave unused initially |
 | PSCI | `enable-method = "psci"`, SMC | Reuse herolte SMP approach |
-| GIC | GIC-400: distributor `0x10201000`, CPU interface `0x10202000` | DTS |
-| Timer | 26 MHz, virtual timer PPI 11 -> INTID 27 | DTS; verify CNTFRQ in probe |
-| RAM (DTS) | `0x80000000+0x3c800000`, `0xc0000000+0x40000000`, `0x880000000+0x80000000` | 6 GB variant needs boot-DTB verification |
-| Candidate XNU window | `0x90000000`..`0xb0000000` (512 MiB), below TIMA `0xb1000000` | Same window as herolte; verify against boot DTB |
-| Framebuffer (hypothesis) | `0xcc000000`, 1440x2960, ARGB8888, stride 5760 | From dreamlte; **must** be confirmed by probe |
-| DECON | `DECON_F` `0x12860000`; HW trigger `+0x70` | DTS + dreamlte |
-| DSIM | `0x12870000` | DTS |
-| Storage | UFS 2.1 at `0x11120000`; UNIPRO `0x11110000`; protector `0x11130000` | DTS; adapt herolte UFS patch |
+| GIC | GIC-400: distributor `0x10201000`, CPU interface `0x10202000` | Live FDT |
+| Timer | 26 MHz, virtual timer PPI 11 -> INTID 27 | Live FDT (`clock-frequency 0x18cba80`) |
+| RAM (live FDT) | `0x80000000+0x3c800000`, `0xc0000000+0x40000000`, `0x880000000+0x80000000`, `0x900000000+0x80000000` | 6 GB |
+| XNU window | `0x92400000`..`0xb1000000` (492 MiB) | Between Samsung secure logs and TIMA |
+| Framebuffer | `0xcc000000`, 1440x2960, ARGB8888, stride 5760 | Probe `FB=0xCC000000`; bootargs `s3cfb.bootloaderfb` |
+| DECON | `DECON_F` `0x12860000`; HW trigger register `+0x70` read as `0x1291` | Probe |
+| DSIM | `0x12870000` | Live FDT |
+| Storage | UFS 2.1 at `0x11120000` (HCI +0, vendor +0x100, UNIPRO `0x11110000`, protector `0x11130000`) | Live FDT |
+| FDT / initrd | FDT `0x8a000000`; initrd `0x89000000`..`0x8918067c` | Probe |
+| Image load | `0x800ec000` (not the BOOT header's `0x10008000`) | Probe |
 | Touch | `sec,sec_ts` at HSI2C `0x108e0000`, address `0x48`, IRQ `gpa1-0` | DTS; protocol needs device test |
 | Touch rails | `tsp_io`, `tsp_avdd` | DTS; PMIC mapping to verify |
 | Touch firmware | `tsp_sec/y661_great.fw` | DTS |
@@ -101,8 +104,8 @@ USERDATA writes.
 ### Phase 2 — XNU, one core
 
 - Build `kernel.development.greatlte` with `MACHINE_CONFIG=GREATLTE`.
-- Loader copies XNU into the `0x90000000` window, passes a minimal ADT and
-  boot-args, jumps.
+- Loader copies XNU into the `0x92400000`..`0xb1000000` window, passes a
+  minimal ADT and boot-args, jumps.
 - Success criterion: XNU C console output on screen, VM bootstrap, scheduler.
 
 ### Phase 3 — storage and root
@@ -122,16 +125,40 @@ USERDATA writes.
 - Apply greatlte-specific root tweaks.
 - Success criterion: launchd, backboardd, SpringBoard, Hello screen.
 
+## Reserved / occupied physical memory (from the live FDT and bootargs)
+
+The low 3 GiB bank is not a flat RAM range. Keep the XNU window clear of:
+
+| Range | Owner |
+| --- | --- |
+| `0x80000000`..`0x80004000` | S-Boot / DT |
+| kernel image from `0x800ec000`, ~40 MiB | S-Boot |
+| `0x89000000`..`0x8918067c` | initrd |
+| `0x8a000000` | FDT |
+| `0x91200000` | ESS setup (`ess_setup=0x91200000`), ends before `0x92200000` |
+| `0x92202000`, `0x92244000`, `0x92286000`, `0x92388000` | Samsung `sec_avc_log`, `sec_tsp_log`, `sec_debug.base`, `auto_summary_log` |
+| `0xb1000000`..`0xb1200000` | TIMA (`tima_region`, `tima_log`) |
+| `0xc0000000`..`0xc0010000` | `seclog_mem` |
+| `0xcc000000`..`0xcd043000` | S-Boot framebuffer (17,049,600 bytes) |
+| `0xd0000000`..`0xd1400000` | secure camera |
+| `0xe6c00000`..`0xea800000` | video stream |
+| `0xea800000`..`0xeac00000` | ABOX |
+| `0xf3400000`..`0xf4c00000` | crypto |
+| `0xf4c00000`..`0xfdc00000` | modem |
+| `0xfdc00000`..`0xffc00000` | CP RAM logging |
+| `0xffc00000`..`0x100000000` | GNSS |
+
+The window `0x92400000`..`0xb1000000` is clear in this map. It ends exactly
+at TIMA; do not grow it upward.
+
 ## Open questions
 
-1. Actual framebuffer address and DECON state left by S-Boot.
-2. Actual FDT and initrd addresses/ranges.
-3. 6 GB RAM layout and a safe XNU window.
-4. Touch controller protocol/firmware differences from herolte.
-5. S2MPS17 rail mapping for touch and display.
-6. UFS host quirks after S-Boot handoff.
-7. Panel scaling/letterboxing for the 18.5:9 display.
-8. Whether the bootloader starts on A53 `0x100` or on a Mongoose core.
+1. Touch controller protocol/firmware differences from herolte.
+2. S2MPS17 rail mapping for touch and display.
+3. UFS host quirks after S-Boot handoff.
+4. Panel scaling/letterboxing for the 18.5:9 display.
+5. Real D22AP `/product` tree for iOS userland (missing until the IPSW is
+   downloaded and extracted).
 
 ## Safety
 
