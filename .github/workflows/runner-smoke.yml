@@ -1,0 +1,16 @@
+name: runner-smoke
+
+# Cheap availability check for the x86_64 macOS pool used by xnu.yml.
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - run: |
+          uname -m
+          sw_vers
+          ls -d /Applications/Xcode*.app
+          xcodebuild -version
