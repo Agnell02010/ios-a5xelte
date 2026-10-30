@@ -109,14 +109,24 @@ jobs:
           lines = open(sys.argv[1], errors='replace').read().splitlines()
           clean = [re.sub(r'\x1b\[[0-9;]*m', '', l) for l in lines]
           pat = re.compile(r'(error:|fatal error|Error \d|\*\*\* |FAILED|Skipping patch|No such file|panic|❌)', re.I)
+          noise = ('Skipping patch', 'patch does not apply', 'patch failed',
+                   'already exists in working directory')
           hits = [l for l in clean if pat.search(l)]
+          real = [l for l in hits if not any(n in l for n in noise)]
           esc = lambda s: s.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
-          for l in hits[:9]:
+          for l in (real or hits)[:12]:
               print('::error title=build::' + esc(l[:900]))
           tail = '\n'.join(l[:300] for l in clean[-60:])
           print('::error title=build log tail::' + esc(tail[-30000:]))
           PY
           exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: xnu-buildlog
+          path: build.log
+          retention-days: 7
 
       - name: Package build tree for local compiles
         if: always()

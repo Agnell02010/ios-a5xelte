@@ -74,6 +74,14 @@ The boot CPU is a Cortex-A53 at MPIDR `0x100`; S-Boot loads the Image at
 - No greatlte kernel artifact exists yet. The first herolte CI run was
   cancelled while queued on arm64 (`The job was not acquired by Runner of
   type hosted`); the workflow now uses `macos-15-intel`.
+- Run `41083355147` (GREATLTE, macos-15-intel) reached the compile phase and
+  failed because `0019-stage-libpthread.sh`, `0020-stage-bearssl.sh` and
+  `0026-stage-hfs.sh` only accepted `SWEET|A5XELTE|HEROLTE`, so the vendor
+  sources were never staged. Fixed by adding `GREATLTE` to all three. The
+  compiler errors were exactly the missing `sweet_bearssl/`,
+  `sweet_libpthread/` and `sweet_hfs/` trees.
+- Workflow now uploads `build.log` as the `xnu-buildlog` artifact on failure
+  and reports real compile errors (not only skipped patches) as annotations.
 
 ### Claims
 
