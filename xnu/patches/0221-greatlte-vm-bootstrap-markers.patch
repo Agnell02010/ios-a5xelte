@@ -1,0 +1,51 @@
+diff --git a/osfmk/vm/vm_resident.c b/osfmk/vm/vm_resident.c
+index 6394730..8681b26 100644
+--- a/osfmk/vm/vm_resident.c
++++ b/osfmk/vm/vm_resident.c
+@@ -1079,6 +1079,7 @@ vm_page_bootstrap(
+ 	 *	Steal memory for the map and zone subsystems.
+ 	 */
+ 	kernel_startup_initialize_upto(STARTUP_SUB_PMAP_STEAL);
++	kprintf("GXLTE-VM: pmap_steal phase done\n");
+ 
+ 	/*
+ 	 *	Allocate (and initialize) the virtual-to-physical
+@@ -1093,12 +1094,14 @@ vm_page_bootstrap(
+ 	if (vm_page_bucket_count == 0) {
+ 		unsigned int npages = pmap_free_pages();
+ 
++		kprintf("GXLTE-VM: pmap_free_pages=%u\n", npages);
+ 		vm_page_bucket_count = 1;
+ 		while (vm_page_bucket_count < npages) {
+ 			vm_page_bucket_count <<= 1;
+ 		}
+ 	}
+ 	vm_page_bucket_lock_count = (vm_page_bucket_count + BUCKETS_PER_LOCK - 1) / BUCKETS_PER_LOCK;
++	kprintf("GXLTE-VM: buckets=%u locks=%u\n", vm_page_bucket_count, vm_page_bucket_lock_count);
+ 
+ 	vm_page_hash_mask = vm_page_bucket_count - 1;
+ 
+@@ -1155,11 +1158,13 @@ vm_page_bootstrap(
+ 	vm_page_buckets = (vm_page_bucket_t *)
+ 	    pmap_steal_memory(vm_page_bucket_count *
+ 	    sizeof(vm_page_bucket_t), 0);
++	kprintf("GXLTE-VM: bucket table at %p\n", vm_page_buckets);
+ 
+ 	kernel_debug_string_early("vm_page_bucket_locks");
+ 	vm_page_bucket_locks = (lck_spin_t *)
+ 	    pmap_steal_memory(vm_page_bucket_lock_count *
+ 	    sizeof(lck_spin_t), 0);
++	kprintf("GXLTE-VM: bucket locks at %p\n", vm_page_bucket_locks);
+ 
+ 	for (i = 0; i < vm_page_bucket_count; i++) {
+ 		vm_page_bucket_t *bucket = &vm_page_buckets[i];
+@@ -1190,7 +1195,9 @@ vm_page_bootstrap(
+ 	 */
+ 
+ 	kernel_debug_string_early("pmap_startup");
++	kprintf("GXLTE-VM: pmap_startup enter\n");
+ 	pmap_startup(&virtual_space_start, &virtual_space_end);
++	kprintf("GXLTE-VM: pmap_startup done\n");
+ 	virtual_space_start = round_page(virtual_space_start);
+ 	virtual_space_end = trunc_page(virtual_space_end);
+ 
