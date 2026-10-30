@@ -108,6 +108,26 @@ USERDATA writes.
   minimal ADT and boot-args, jumps.
 - Success criterion: XNU C console output on screen, VM bootstrap, scheduler.
 
+Prepare the image on the host (the stock BOOT is only read):
+
+```sh
+gh run download <GREATLTE_RUN_ID> -R Agnell02010/ios-a5xelte \
+    -n xnu-kernel -D xnu-kernel
+tools/greatlte-make-xnu-boot.sh xnu-kernel/kernel.development.greatlte \
+    xnu-boot.img
+```
+
+Flash only BOOT from TWRP and reboot:
+
+```sh
+adb push xnu-boot.img /tmp/xnu-boot.img
+adb shell 'dd if=/tmp/xnu-boot.img of=/dev/block/sda7 bs=4096'
+```
+
+Restore the stock BOOT by flashing `backup/greatlte/BOOT.img` the same way.
+The loader prints the failure reason on screen and requests TWRP after 30 s;
+a hard hang is recovered with Vol- + Power ~7 s, then Vol+ + Home + Power.
+
 ### Phase 3 — storage and root
 
 - UFS read-only probe, then HFSX ramdisk root, then USERDATA read/write.
