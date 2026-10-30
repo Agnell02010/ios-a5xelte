@@ -174,6 +174,23 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - The image is ready to flash to BOOT (`/dev/block/sda7`) for the first
   greatlte UFS access. Nothing else is written by the probe.
 
+### Phase 3b: first UFS probe on the device
+
+- The probe booted and printed, after the full BSD init:
+  `cap 0x1383ff0f ver 0x210 hcs 0xf hce 0x8 is 0x8 utrlba 0xef002000
+  dbr 0x9 rsr 0x1`, `txprdt 0xc rxprdt 0xc nexus 0xffff`, then
+  `host not ready (hce 0x8 hcs 0xf)` and `probe done (6)`.
+- Unlike the 8890, the 8895 S-Boot leaves HCE bit 0 clear (controller
+  disabled) although the UTP registers still show its list, run bit and
+  two doorbells. The driver therefore refused to touch the list.
+- The kernel then continued to the normal `Waiting on IOProviderClass
+  IOMedia ... Apple_HFS` root wait: the phone was not hung.
+- Patch `0223-greatlte-ufs-host-enable.patch` makes the driver stop the
+  old list, clear the bootloader doorbells, write HCE=1 and wait for the
+  controller readiness bits. If the first TEST UNIT READY set still
+  fails, the probe issues a UniPro `DME_LINK_STARTUP` (UIC 0x16) and
+  retries LUN 0. Register and UIC results are printed.
+
 ### Claims
 
 - Device-verified: probe output and all live-FDT values above; stock

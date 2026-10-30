@@ -1,0 +1,147 @@
+diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
+index 9ca70f1..980a959 100644
+--- a/bsd/dev/greatlte_ufs.c
++++ b/bsd/dev/greatlte_ufs.c
+@@ -59,6 +59,13 @@ extern int hz;
+ #define REG_UTRLCLR     0x5c
+ #define REG_UTRLRSR     0x60
+ #define REG_VER         0x08
++#define REG_UIC_CMD     0x90
++#define REG_UIC_ARG1    0x94
++#define REG_UIC_ARG2    0x98
++#define REG_UIC_ARG3    0x9c
++#define IS_UIC_ERROR    0x00000004u
++#define IS_UIC_COMPL    0x00000400u
++#define UIC_DME_LINK_STARTUP 0x16
+ /* Exynos 8895 vendor HCI registers, 0x1100 above the standard block. */
+ #define VS_TXPRDT_ENTRY_SIZE    0x1100
+ #define VS_RXPRDT_ENTRY_SIZE    0x1104
+@@ -385,14 +392,85 @@ ufs_wake_device(void)
+ 	return error;
+ }
+ 
++static int
++ufs_uic_cmd(uint32_t cmd)
++{
++	ufs_wr(REG_IE, 0);
++	ufs_wr(REG_IS, ufs_rd(REG_IS));
++	ufs_wr(REG_UIC_ARG1, 0);
++	ufs_wr(REG_UIC_ARG2, 0);
++	ufs_wr(REG_UIC_ARG3, 0);
++	ufs_wr(REG_UIC_CMD, cmd);
++	uint32_t is = 0;
++	for (int i = 0; i < 500; i++) {
++		is = ufs_rd(REG_IS);
++		if (is & (IS_UIC_COMPL | IS_UIC_ERROR)) {
++			break;
++		}
++		delay(1);
++	}
++	uint32_t a2 = ufs_rd(REG_UIC_ARG2), a3 = ufs_rd(REG_UIC_ARG3);
++	printf("GREATLTE UFS: UIC cmd 0x%x is 0x%x arg2 0x%x arg3 0x%x\n", cmd, is, a2, a3);
++	ufs_wr(REG_IS, is);
++	if (!(is & IS_UIC_COMPL) || (a2 & 0xff) != 0) {
++		return EIO;
++	}
++	return 0;
++}
++
+ static int
+ ufs_take_over_host(void)
+ {
+ 	uint32_t hce = ufs_rd(REG_HCE), hcs = ufs_rd(REG_HCS);
+-	if (!(hce & 1) || !(hcs & HCS_DP) || !(hcs & HCS_UTRLRDY)) {
++
++	ufs_wr(REG_IE, 0);                      /* polled operation */
++	ufs_wr(REG_IS, ufs_rd(REG_IS));
++	/*
++	 * Exynos 8895 S-Boot disables the controller before jumping, unlike the
++	 * 8890: HCE bit 0 is clear while the UTP registers still show the
++	 * bootloader's list and doorbells. Stop the old list first, then enable
++	 * the controller and let its initialization sequence run.
++	 */
++	if (!(hce & 1)) {
++		printf("GREATLTE UFS: HCE is off (hce 0x%x hcs 0x%x), enabling\n", hce, hcs);
++		ufs_wr(REG_UTRLRSR, 0);
++		uint32_t dbr = ufs_rd(REG_UTRLDBR);
++		if (dbr) {
++			printf("GREATLTE UFS: bootloader doorbells 0x%x, clearing\n", dbr);
++			ufs_wr(REG_UTRLCLR, dbr);
++			for (int i = 0; i < 200 && (ufs_rd(REG_UTRLDBR) & dbr); i++) {
++				delay(1);
++			}
++		}
++		ufs_wr(REG_HCE, 1);
++		for (int i = 0; i < 500 && !(ufs_rd(REG_HCE) & 1); i++) {
++			delay(1);
++		}
++		hce = ufs_rd(REG_HCE);
++		hcs = ufs_rd(REG_HCS);
++		printf("GREATLTE UFS: HCE enable: hce 0x%x hcs 0x%x is 0x%x dbr 0x%x rsr 0x%x\n",
++		    hce, hcs, ufs_rd(REG_IS), ufs_rd(REG_UTRLDBR), ufs_rd(REG_UTRLRSR));
++	}
++	for (int i = 0; i < 200 && (hcs & 0xf) != 0xf; i++) {
++		delay(1);
++		hcs = ufs_rd(REG_HCS);
++	}
++	if (!(hce & 1) && (hcs & 0xf) != 0xf) {
+ 		printf("GREATLTE UFS: host not ready (hce 0x%x hcs 0x%x)\n", hce, hcs);
+ 		return ENXIO;
+ 	}
++	if (!(hcs & HCS_DP) || !(hcs & HCS_UTRLRDY)) {
++		printf("GREATLTE UFS: host not ready (hce 0x%x hcs 0x%x)\n", hce, hcs);
++		return ENXIO;
++	}
++	uint32_t dbr = ufs_rd(REG_UTRLDBR);
++	if (dbr) {
++		printf("GREATLTE UFS: bootloader doorbells 0x%x still set, clearing again\n", dbr);
++		ufs_wr(REG_UTRLCLR, dbr);
++		for (int i = 0; i < 200 && (ufs_rd(REG_UTRLDBR) & dbr); i++) {
++			delay(1);
++		}
++	}
+ 	if (ufs_rd(REG_UTRLDBR)) {
+ 		printf("GREATLTE UFS: requests outstanding from the bootloader\n");
+ 		return EBUSY;
+@@ -403,8 +481,6 @@ ufs_take_over_host(void)
+ 		    su.dma_pa);
+ 		return ENXIO;
+ 	}
+-	ufs_wr(REG_IE, 0);                      /* polled operation */
+-	ufs_wr(REG_IS, ufs_rd(REG_IS));
+ 	ufs_wr(REG_UTRLRSR, 0);
+ 	uint64_t list = su.dma_pa + DMA_UTRL;
+ 	ufs_wr(REG_UTRLBA, (uint32_t)list);
+@@ -726,10 +802,11 @@ greatlte_ufs_probe(void)
+ 
+ 	lck_mtx_lock(&greatlte_ufs_lock);
+ 	int error = ufs_take_over_host();
+-	if (!error) {
++	bool took = (error == 0);
++	if (took) {
+ 		(void)ufs_wake_device();
+ 	}
+-	if (!error) {
++	if (took) {
+ 		static const uint8_t tur[6] = { 0x00 };
+ 		for (unsigned lun = 0; lun < 4; lun++) {
+ 			int e = 0;
+@@ -741,6 +818,18 @@ greatlte_ufs_probe(void)
+ 		su.lun = 0;
+ 	}
+ 	const uint8_t *b = (const uint8_t *)(su.dma + DMA_BOUNCE);
++	if (took && error) {
++		printf("GREATLTE UFS: probe: retrying after DME_LINK_STARTUP\n");
++		if (ufs_uic_cmd(UIC_DME_LINK_STARTUP) == 0) {
++			(void)ufs_wake_device();
++			static const uint8_t tur0[6] = { 0x00 };
++			int e = 0;
++			for (int i = 0; i < 3 && (e = ufs_scsi(tur0, sizeof(tur0), 0, false)); i++) {
++			}
++			printf("GREATLTE UFS: probe: lun 0 TEST UNIT READY after link startup %d\n", e);
++			error = e;
++		}
++	}
+ 	if (!error) {
+ 		error = ufs_read_blocks(1, 1);
+ 		printf("GREATLTE UFS: probe: READ(10) LBA1 %d, signature %.8s\n", error,
