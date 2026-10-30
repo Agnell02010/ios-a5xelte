@@ -140,6 +140,26 @@ This is the Phase 2 success criterion: XNU boots, the scheduler runs, BSD
 initializes, and the kernel waits for an HFS root device. The next work is
 storage (Exynos 8895 UFS) and then the iOS root image.
 
+### Phase 3 work: Exynos 8895 UFS
+
+- The herolte driver relies on the fact that S-Boot leaves the UFSHCI host
+  enabled with the link up, then issues polled SCSI commands on LUN 0. The
+  8895 uses the same UFSHCI 2.0 interface and the same Samsung quirks
+  (`BROKEN_DWORD_UTRD`, `BROKEN_REQ_LIST_CLR`).
+- One difference found in `exynos8895.dtsi`: the vendor-specific HCI block
+  is at **`0x11121100` (+0x1100)**, not `+0x100` as on the 8890. The
+  greatlte driver therefore uses `VS_TXPRDT_ENTRY_SIZE 0x1100`,
+  `VS_RXPRDT_ENTRY_SIZE 0x1104`, `VS_UTRL_NEXUS_TYPE 0x1140` and maps at
+  least `0x2000` bytes.
+- `xnu/patches/0222-greatlte-exynos-ufs.patch` adds
+  `bsd/dev/greatlte_ufs.c` (derived from the device-verified herolte
+  driver), the `/greatlte-ufs` ADT node lookup (`reg = 0x11120000+0x3000`,
+  already written by `mkadt_greatlte.py`), the `bsd/conf/files` entry and
+  the `IOFindBSDRoot` hook (`ufsprobe=1`, `rd=ufsroot0`).
+- First step is a read-only probe: host registers, TEST UNIT READY on
+  LUN 0..3, then READ(10) of GPT LBA 1 and the partition list. No storage
+  writes.
+
 ### Claims
 
 - Device-verified: probe output and all live-FDT values above; stock
