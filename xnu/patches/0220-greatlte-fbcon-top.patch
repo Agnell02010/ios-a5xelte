@@ -1,0 +1,21 @@
+diff --git a/pexpert/arm/pe_serial.c b/pexpert/arm/pe_serial.c
+index ed7dccd..423080e 100644
+--- a/pexpert/arm/pe_serial.c
++++ b/pexpert/arm/pe_serial.c
+@@ -838,6 +838,16 @@ fbcon_probe(void)
+ 	if (!fbcon_width || !fbcon_height || fbcon_stride < fbcon_width * 4) {
+ 		return;
+ 	}
++#if defined(ARM64_BOARD_CONFIG_GREATLTE)
++	/*
++	 * The Note 8 panel is damaged along its bottom edge. Keep the whole
++	 * console in the healthy upper area: 2400 of 2960 pixels (75 rows at
++	 * FBCON_SCALE 2), so the newest output never lands on dead pixels.
++	 */
++	if (fbcon_height > 2400) {
++		fbcon_height = 2400;
++	}
++#endif
+ 	sweet_early_mark(17, "fbcon config read; mapping");
+ 	fbcon_base = (volatile uint32_t *)ml_io_map_wcomb(reg[0], reg[1]);
+ 	sweet_early_mark(18, "fbcon mapping returned");
