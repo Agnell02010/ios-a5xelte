@@ -117,6 +117,28 @@ Run `41092209216` rebuilt the kernel with that patch (sha256
 `b684186c3dadc7e8bea2288a130b6619fa9bacb0fb251bbb74034f48a3aa7d58`) and
 produced the next diagnostic image (`xnu-boot.img`, sha256
 `55e1f73217b9bee64d7c3ff16f1c728f24b16c2474510f09b0a5caae5e5ecb5c`).
+On one boot that image appeared frozen at `reached phase 5` for two
+minutes; a later boot with the instrumented kernel (run `41095907038`, patch
+`0221-greatlte-vm-bootstrap-markers.patch`) went through and reached the
+Phase 2 end state, so the early stop is a timing-sensitive flake to watch,
+not a deterministic blocker.
+
+### Phase 2 complete (device-verified)
+
+The instrumented image (`xnu-boot-diag.img`, sha256
+`b5db1aa5ad2c0daf17ec0c008686845fd01edcc840a1992e7c81983d9927a4ce`)
+printed the full BSD init sequence on the Note 8 panel, including:
+
+- `pmap_init: done [64 MB total pool size, (42/21) split]`;
+- `DLIL: running SUN16 self-tests ... PASSED`;
+- `Skywalk: ... PASSED` for all sk_copy/sk_zero/moncap tests;
+- `ifnet_attach: ... lo0/gif0/stf0 ... scheduled`;
+- `Waiting on IOProviderClass IOMedia ... Apple_HFS`;
+- `Failed to write boot-picker-bringup-reason to NVRAM` (expected).
+
+This is the Phase 2 success criterion: XNU boots, the scheduler runs, BSD
+initializes, and the kernel waits for an HFS root device. The next work is
+storage (Exynos 8895 UFS) and then the iOS root image.
 
 ### Claims
 

@@ -107,6 +107,8 @@ USERDATA writes.
 - Loader copies XNU into the `0x92400000`..`0xb1000000` window, passes a
   minimal ADT and boot-args, jumps.
 - Success criterion: XNU C console output on screen, VM bootstrap, scheduler.
+  **Device-verified 2026-10-30:** BSD init completes, Skywalk self-tests pass,
+  and the kernel waits on `IOMedia … Apple_HFS` (the Phase 2 end state).
 
 Prepare the image on the host (the stock BOOT is only read):
 
@@ -126,11 +128,14 @@ adb shell 'dd if=/tmp/xnu-boot.img of=/dev/block/sda7 bs=4096'
 
 Restore the stock BOOT by flashing `backup/greatlte/BOOT.img` the same way.
 The loader prints the failure reason on screen and requests TWRP after 30 s;
-a hard hang is recovered with Vol- + Power ~7 s, then Vol+ + Home + Power.
+a hard hang is recovered with Vol- + Power ~7 s, then Vol+ + Bixby + Power.
 
 ### Phase 3 — storage and root
 
-- UFS read-only probe, then HFSX ramdisk root, then USERDATA read/write.
+- Adapt the herolte Exynos UFS driver to the 8895 controller at
+  `0x11120000` (UNIPRO `0x11110000`, protector `0x11130000`); add the
+  `greatlte-ufs` ADT node and a read-only probe first.
+- Then HFSX ramdisk root, then USERDATA read/write.
 - Success criterion: `hfs: mounted ... on device`, launchd starts.
 
 ### Phase 4 — display, touch, keys
