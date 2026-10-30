@@ -160,6 +160,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   LUN 0..3, then READ(10) of GPT LBA 1 and the partition list. No storage
   writes.
 
+### Phase 3a: UFS probe image built
+
+- CI run `41109326291` (branch `greatlte`, commit `212c910`) completed
+  successfully and produced `kernel.development.greatlte` (sha256
+  `f4e44374a85afdbe418005fb438e3d8a6749d782bcc5275ca369a6c6eaf5ac9a`).
+  The binary contains the `GREATLTE UFS:` probe strings (24 occurrences),
+  so the new driver is compiled in.
+- Host pipeline produced `xnu-boot-ufs.img` (18,284,560 bytes, sha256
+  `dc0a8afff9f3d110057d68f3f1255590eaac23dd8a0ff85e85759b394edd1d29`)
+  with cmdline `debug=0xc serial=3 cpus=1 keepsyms=1 startup_debug=1
+  ufsprobe=1 -enable_kprintf_spam -noprogress`.
+- The image is ready to flash to BOOT (`/dev/block/sda7`) for the first
+  greatlte UFS access. Nothing else is written by the probe.
+
 ### Claims
 
 - Device-verified: probe output and all live-FDT values above; stock
