@@ -143,10 +143,10 @@ read-only diagnostic image from its kernel artifact with `ufsprobe=1` (do not
 set `rd=ufsroot0` or `ufsrw=1` for this probe):
 
 ```sh
-gh run download 41199104693 -R Agnell02010/ios-a5xelte \
-    -n xnu-kernel -D xnu-kernel-ufs4
+gh run download 41243017134 -R Agnell02010/ios-a5xelte \
+    -n xnu-kernel -D xnu-kernel-ufs5
 tools/greatlte-make-xnu-boot.sh \
-    xnu-kernel-ufs4/kernel.development.greatlte xnu-boot-ufs4.img \
+    xnu-kernel-ufs5/kernel.development.greatlte xnu-boot-ufs5.img \
     'debug=0xc serial=3 cpus=1 keepsyms=1 startup_debug=1 ufsprobe=1 -enable_kprintf_spam -noprogress'
 ```
 

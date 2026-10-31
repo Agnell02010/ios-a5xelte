@@ -255,5 +255,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - Source review found a concrete UIC argument-order bug in patch 0225:
   DME_SET passes the attribute value in ARG3, but UIC DME_SET requires the
   value in ARG2 and ARG3 zero. Corrected the common, RX-lane and TX-lane
-  calls locally. The kernel has not yet been rebuilt or device-tested with
-  this correction.
+  calls in commit `acf4400`.
+- CI run `41243017134` succeeded for commit `acf4400`; kernel sha256
+  `5f174392331039f46e5a453d5d97e40969d4f61ede23c17e05e22d88a551ff21`.
+  Repacked as `xnu-boot-ufs5.img` (18,300,944 bytes, sha256
+  `2c97e4f1d166f043c215b20f4554a6ab36bca3539fac1a7fbe9939b105a42c51`)
+  with read-only `ufsprobe=1` arguments.
+- On 2026-10-31 the corrected image was flashed to BOOT only from TWRP;
+  readback SHA-256 matched. USERDATA and other partitions were not touched.
+  Device boot result for this corrected PHY setup is pending.
