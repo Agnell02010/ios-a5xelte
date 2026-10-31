@@ -226,3 +226,34 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - `xnu-boot-ufs3.img` (18,300,944 bytes, sha256
   `e1969f3083dd3e366087dde909744e8b1744d0af76cc6ab28e1f9ffd1a3ea773`)
   carries the same `ufsprobe=1` cmdline and the new strings.
+
+### Phase 3d: UFS PHY initialization probe (device tested, link still down)
+
+- Patch `0225-greatlte-ufs-phy-init.patch` adds the Exynos 8895 PHY/UniPro
+  setup based on the board DTS and reports per-table DME results. CI run
+  `41199104693` completed successfully for commit `6aa9e4e`. Its kernel was
+  packed as `xnu-boot-ufs4.img` (18,300,944 bytes, sha256
+  `a5a05a250fb2f71b9252a0e771ccd09d0126a12051d8e5fc22e2e36b1cf567a9`)
+  with `ufsprobe=1` and without `rd=ufsroot0` or `ufsrw=1`.
+- Updated `tools/greatlte-make-xnu-boot.sh` to accept an optional boot
+  command line, preserving its original default. The probe command is
+  documented in `docs/greatlte-bringup.md` and must include `ufsprobe=1`.
+- The `xnu-boot-ufs4.img` probe was flashed to BOOT only; the flash helper
+  read the image back and verified the same SHA-256. USERDATA was not touched.
+- Device photo after boot (`IMG_20261031_220158514`): UIC
+  `DME_LINK_STARTUP` returned `IS=0x4`, `ARG2=0`, `ARG3=0`; the driver
+  reported `B link startup 5` (EIO). Subsequent SCSI commands timed out with
+  `HCE=1`, `HCS=0xf`, `IS=0x404`, and `UTRLDBR=1`. Device W-LUN TEST UNIT
+  READY and START STOP UNIT both returned 60 (ETIMEDOUT); LUN 0 TUR also
+  timed out, and the read-only probe ended with error 60. XNU continued to
+  the expected Apple_HFS root wait.
+- This confirms XNU and the diagnostic path still boot, but the PHY patch
+  did not bring the UFS link up. No GPT contents or partitions were read
+  successfully. The follow-up photo shows another boot at the takeover
+  sequence but does not include the PHY-table summary or fresh UIC error
+  details. Do not enable `rd=ufsroot0` or `ufsrw=1` yet.
+- Source review found a concrete UIC argument-order bug in patch 0225:
+  DME_SET passes the attribute value in ARG3, but UIC DME_SET requires the
+  value in ARG2 and ARG3 zero. Corrected the common, RX-lane and TX-lane
+  calls locally. The kernel has not yet been rebuilt or device-tested with
+  this correction.

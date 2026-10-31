@@ -138,6 +138,22 @@ a hard hang is recovered with Vol- + Power ~7 s, then Vol+ + Bixby + Power.
 - Then HFSX ramdisk root, then USERDATA read/write.
 - Success criterion: `hfs: mounted ... on device`, launchd starts.
 
+The UFS PHY/link initialization is implemented in patch `0225`. Build a
+read-only diagnostic image from its kernel artifact with `ufsprobe=1` (do not
+set `rd=ufsroot0` or `ufsrw=1` for this probe):
+
+```sh
+gh run download 41199104693 -R Agnell02010/ios-a5xelte \
+    -n xnu-kernel -D xnu-kernel-ufs4
+tools/greatlte-make-xnu-boot.sh \
+    xnu-kernel-ufs4/kernel.development.greatlte xnu-boot-ufs4.img \
+    'debug=0xc serial=3 cpus=1 keepsyms=1 startup_debug=1 ufsprobe=1 -enable_kprintf_spam -noprogress'
+```
+
+The image only probes UFS and reads the LUN 0 GPT; it does not mount or write
+USERDATA. Flashing still replaces BOOT, so verify the stock BOOT backup and
+confirm the target device before using the existing BOOT flash helper.
+
 ### Phase 4 — display, touch, keys
 
 - iPhone X canvas 1125x2436 scaled/presented on 1440x2960.

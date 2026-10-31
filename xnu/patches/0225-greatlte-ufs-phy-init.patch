@@ -270,21 +270,21 @@
 +		int error = 0;
 +		switch (cfg[i].kind) {
 +		case PHY_CFG_DME:
-+			error = ufs_uic_cmd(UIC_DME_SET, cfg[i].addr << 16, 0,
-+			    cfg[i].val, true);
++			error = ufs_uic_cmd(UIC_DME_SET, cfg[i].addr << 16,
++			    cfg[i].val, 0, true);
 +			break;
 +		case PHY_CFG_DME_RX:
 +			for (unsigned lane = 0; lane < 2; lane++) {
 +				error |= ufs_uic_cmd(UIC_DME_SET,
-+				    (cfg[i].addr << 16) | (4 + lane), 0,
-+				    cfg[i].val, true);
++				    (cfg[i].addr << 16) | (4 + lane),
++				    cfg[i].val, 0, true);
 +			}
 +			break;
 +		case PHY_CFG_DME_TX:
 +			for (unsigned lane = 0; lane < 2; lane++) {
 +				error |= ufs_uic_cmd(UIC_DME_SET,
-+				    (cfg[i].addr << 16) | lane, 0,
-+				    cfg[i].val, true);
++				    (cfg[i].addr << 16) | lane,
++				    cfg[i].val, 0, true);
 +			}
 +			break;
 +		case PHY_CFG_PMA_COMN:
