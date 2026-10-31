@@ -1,0 +1,462 @@
+--- a/bsd/dev/greatlte_ufs.c
++++ b/bsd/dev/greatlte_ufs.c
+@@ -63,17 +63,56 @@
+ #define REG_UIC_ARG1    0x94
+ #define REG_UIC_ARG2    0x98
+ #define REG_UIC_ARG3    0x9c
++#define REG_UIC_ERR_PA  0x38
++#define REG_UIC_ERR_DL  0x3c
++#define REG_UIC_ERR_N   0x40
++#define REG_UIC_ERR_T   0x44
++#define REG_UIC_ERR_DME 0x48
+ #define IS_UIC_ERROR    0x00000004u
+ #define IS_UIC_COMPL    0x00000400u
++#define UIC_DME_SET     0x02
+ #define UIC_DME_LINK_STARTUP 0x16
++#define UIC_RESULT_MASK 0x000000ffu
+ /* Exynos 8895 vendor HCI registers, 0x1100 above the standard block. */
+ #define VS_TXPRDT_ENTRY_SIZE    0x1100
+ #define VS_RXPRDT_ENTRY_SIZE    0x1104
+ #define VS_UTRL_NEXUS_TYPE      0x1140
++#define VS_CLKSTOP_CTRL         0x11b0
++#define VS_FORCE_HCS            0x11b4
++#define VS_ACG_DISABLE          0x11fc
++#define VS_MPHY_REFCLK_SEL      0x1208
++#define VS_CLKSTOP_REFCLKOUT    (1u << 4)
++#define VS_CLKSTOP_REFCLK       (1u << 2)
++#define VS_CLKSTOP_UNIPRO_MCLK  (1u << 1)
++#define VS_CLKSTOP_UNIPRO_PCLK  (1u << 0)
++#define VS_CLKSTOP_ALL          (VS_CLKSTOP_REFCLKOUT | VS_CLKSTOP_REFCLK | \
++                                 VS_CLKSTOP_UNIPRO_MCLK | VS_CLKSTOP_UNIPRO_PCLK)
++#define VS_MPHY_APBCLK_STOP     (1u << 3)
++#define VS_FORCE_UFS_DRCG       (1u << 8)
++#define VS_FORCE_MPHY_APBCLK    (1u << 10)
++#define VS_FORCE_REFCLKOUT      (1u << 11)
++#define VS_FORCE_REFCLK         (1u << 7)
++#define VS_FORCE_UNIPRO_PCLK    (1u << 6)
++#define VS_FORCE_UNIPRO_MCLK    (1u << 5)
++#define VS_FORCE_CLK_STOP_ALL   (VS_FORCE_UFS_DRCG | VS_FORCE_MPHY_APBCLK | \
++                                 VS_FORCE_REFCLKOUT | VS_FORCE_REFCLK | \
++                                 VS_FORCE_UNIPRO_PCLK | VS_FORCE_UNIPRO_MCLK)
++#define VS_ACG_DISABLE_EN       (1u << 0)
++#define VS_REFCLK_ALT           (1u << 0)
++/* MPHY PMA, 0x4000 above the standard block (0x11124000). */
++#define PHY_PMA_OFF             0x4000
++#define PHY_PMA_COMN(reg)       (reg)
++#define PHY_PMA_TRSV(reg, lane) ((reg) + 0x140 * (lane))
++/* UniPro register block, used only for link-startup diagnostics. */
++#define UNIPRO_BASE             0x11110000
++#define UNIPRO_MAP_SIZE         0x8000
++#define UNIPRO_LINKSTARTUP_REQ  0x7850
++#define UNIPRO_LINKSTARTUP_CNF  0x7854
+ #define GREATLTE_UFS_MAP        0x2000
+ 
+ #define HCS_DP          (1u << 0)
+ #define HCS_UTRLRDY     (1u << 1)
++#define HCS_UCRDY       (1u << 3)
+ #define CAP_64AS        (1u << 24)              /* 64-bit DMA addressing */
+ 
+ #define UFS_BLOCK       4096u
+@@ -107,6 +146,7 @@
+ 
+ static struct {
+ 	vm_offset_t regs;
++	vm_offset_t unipro;                     /* UniPro block, diagnostics only */
+ 	vm_offset_t dma;                        /* kernel VA of the DMA allocation */
+ 	uint64_t dma_pa;
+ 	uint8_t lun;
+@@ -134,6 +174,12 @@
+ 	*(volatile uint32_t *)(su.regs + off) = v;
+ }
+ 
++static inline uint32_t
++unipro_rd(uint32_t off)
++{
++	return su.unipro ? *(volatile uint32_t *)(su.unipro + off) : 0xffffffffu;
++}
++
+ static void
+ dma_sync(uint32_t off, uint32_t len)
+ {
+@@ -155,7 +201,7 @@
+ 	ucd->cmd[15] = (uint8_t)len;
+ 	memcpy(&ucd->cmd[16], cdb, cdb_len);
+ 
+-	/* DD: 1 = memory to device, 2 = device to memory. */
+-	utrd->dw0 = (1u << 28) | ((len ? (write ? 1u : 2u) : 0u) << 25) | (1u << 24);
++	/* DD: 1 = memory to device, 2 = device to memory; CT 0 = SCSI. */
++	utrd->dw0 = ((len ? (write ? 1u : 2u) : 0u) << 25) | (1u << 24);
+ 	utrd->dw2 = 0x0f;                       /* OCS invalid until updated */
+ 	utrd->ucdba = (uint32_t)ucd_pa;
+ 	utrd->ucdbau = (uint32_t)(ucd_pa >> 32);
+@@ -207,8 +253,10 @@
+ 	while (ufs_rd(REG_UTRLDBR) & 1) {
+ 		uint64_t now = mach_absolute_time();
+ 		if (now > deadline) {
++			printf("GREATLTE UFS: command 0x%02x timed out: hce 0x%x hcs 0x%x is 0x%x dbr 0x%x\n",
++			    cdb[0], ufs_rd(REG_HCE), ufs_rd(REG_HCS), ufs_rd(REG_IS),
++			    ufs_rd(REG_UTRLDBR));
+ 			ufs_wr(REG_UTRLCLR, 1u);   /* BROKEN_REQ_LIST_CLR */
+-			printf("GREATLTE UFS: command 0x%02x timed out\n", cdb[0]);
+ 			return ETIMEDOUT;
+ 		}
+ 		if (sleepable && now >= spin_until) {
+@@ -395,25 +443,158 @@
+ 	return error;
+ }
+ 
+ static int
+-ufs_uic_cmd(uint32_t cmd)
++ufs_uic_cmd(uint32_t cmd, uint32_t arg1, uint32_t arg2, uint32_t arg3, bool quiet)
+ {
++	uint32_t is = 0;
++
++	/* The controller accepts a UIC command only while HCS.UCRDY is set. */
++	for (int i = 0; i < 100 && !(ufs_rd(REG_HCS) & HCS_UCRDY); i++) {
++		delay(1000);
++	}
++	ufs_wr(REG_IE, 0);
++	ufs_wr(REG_IS, ufs_rd(REG_IS));
++	ufs_wr(REG_UIC_ARG1, arg1);
++	ufs_wr(REG_UIC_ARG2, arg2);
++	ufs_wr(REG_UIC_ARG3, arg3);
++	__builtin_arm_dsb(0xf);
++	ufs_wr(REG_UIC_CMD, cmd);
++
++	for (int i = 0; i < 500; i++) {
++		is = ufs_rd(REG_IS);
++		if (is & IS_UIC_COMPL) {
++			break;
++		}
++		/*
++		 * Link startup may report UIC_ERROR first and still complete;
++		 * keep waiting so ARG2/the completion bit can arrive. Other
++		 * commands fail fast.
++		 */
++		if ((is & IS_UIC_ERROR) && cmd != UIC_DME_LINK_STARTUP) {
++			break;
++		}
++		delay(1000);
++	}
++	uint32_t a2 = ufs_rd(REG_UIC_ARG2), a3 = ufs_rd(REG_UIC_ARG3);
++	int result = (is & IS_UIC_COMPL) ? (int)(a2 & UIC_RESULT_MASK) : -1;
++
++	if (!quiet || result != 0 || !(is & IS_UIC_COMPL)) {
++		printf("GREATLTE UFS: uic 0x%x arg 0x%x is 0x%x a2 0x%x a3 0x%x res %d\n",
++		    cmd, arg1, is, a2, a3, result);
++		if (is & (IS_UIC_ERROR | IS_UIC_COMPL)) {
++			printf("GREATLTE UFS: uic err pa 0x%x dl 0x%x n 0x%x t 0x%x dme 0x%x lsreq 0x%x lscnf 0x%x\n",
++			    ufs_rd(REG_UIC_ERR_PA), ufs_rd(REG_UIC_ERR_DL),
++			    ufs_rd(REG_UIC_ERR_N), ufs_rd(REG_UIC_ERR_T),
++			    ufs_rd(REG_UIC_ERR_DME),
++			    unipro_rd(UNIPRO_LINKSTARTUP_REQ),
++			    unipro_rd(UNIPRO_LINKSTARTUP_CNF));
++		}
++	}
++	if (!(is & IS_UIC_COMPL)) {
++		return ETIMEDOUT;
++	}
++	return result ? EIO : 0;
++}
++
++/*
++ * MPHY PMA writes need the APB clock ungated. The vendor driver clears
++ * MPHY_APBCLK_STOP around each access and restores the previous value (with
++ * the stop bit set).
++ */
++static void
++ufs_phy_pma_wr(uint32_t off, uint32_t val)
++{
++	uint32_t stop = ufs_rd(VS_CLKSTOP_CTRL);
++
++	ufs_wr(VS_CLKSTOP_CTRL, stop & ~VS_MPHY_APBCLK_STOP);
++	__builtin_arm_dsb(0xf);
++	ufs_wr(PHY_PMA_OFF + off, val);
++	__builtin_arm_dsb(0xf);
++	ufs_wr(VS_CLKSTOP_CTRL, stop | VS_MPHY_APBCLK_STOP);
++}
++
++/*
++ * PRE_CHANGE half of the vendor's link_startup_notify: ungate the PHY and
++ * UniPro clocks, select the alternative MPHY reference clock and disable
++ * HWACG, then apply the DTS phy-init table.
++ */
++static void
++ufs_pre_link_setup(void)
++{
++	uint32_t v;
++
++	v = ufs_rd(VS_FORCE_HCS);
++	ufs_wr(VS_FORCE_HCS, v | VS_FORCE_CLK_STOP_ALL);
++	v = ufs_rd(VS_MPHY_REFCLK_SEL);
++	ufs_wr(VS_MPHY_REFCLK_SEL, v | VS_REFCLK_ALT);
++	v = ufs_rd(VS_CLKSTOP_CTRL);
++	ufs_wr(VS_CLKSTOP_CTRL, v & ~VS_CLKSTOP_ALL);
++	v = ufs_rd(VS_ACG_DISABLE);
++	ufs_wr(VS_ACG_DISABLE, v | VS_ACG_DISABLE_EN);
++	__builtin_arm_dsb(0xf);
++}
++
++enum {
++	PHY_CFG_DME,
++	PHY_CFG_DME_RX,
++	PHY_CFG_DME_TX,
++	PHY_CFG_PMA_COMN,
++	PHY_CFG_PMA_TRSV,
++	PHY_CFG_WAIT,
++};
++
++struct phy_cfg {
++	uint32_t kind;
++	uint32_t addr;
++	uint32_t val;
++};
++
++/* exynos8895.dtsi phy-init, in order. The 5 ns periods assume a 200 MHz
++ * UFS_EMBD clock; S-Boot leaves it there on greatlte. */
++static const struct phy_cfg greatlte_phy_init[] = {
++	{ PHY_CFG_DME,      0x9514, 5 },        /* PA_DBG_CLK_PERIOD */
++	{ PHY_CFG_DME,      0x0200, 0x40 },     /* PCS common OV_TM on */
++	{ PHY_CFG_DME_RX,   0x0012, 5 },        /* PCS RX clock period */
++	{ PHY_CFG_DME_TX,   0x00aa, 5 },        /* PCS TX clock period */
++	{ PHY_CFG_DME_RX,   0x005c, 0x38 },
++	{ PHY_CFG_DME_RX,   0x000f, 0x00 },
++	{ PHY_CFG_DME_RX,   0x0065, 0x01 },
++	{ PHY_CFG_DME_RX,   0x0069, 0x01 },
++	{ PHY_CFG_DME_RX,   0x0021, 0x00 },
++	{ PHY_CFG_DME_RX,   0x0022, 0x00 },
++	{ PHY_CFG_DME_RX,   0x0084, 0x01 },
++	{ PHY_CFG_DME_TX,   0x0004, 0x01 },
++	{ PHY_CFG_DME,      0x0200, 0x00 },     /* PCS common OV_TM off */
++	{ PHY_CFG_DME,      0x9536, 0x4e20 },
++	{ PHY_CFG_DME,      0x9564, 0x2e820183 },   /* PA_OPTION_SUITE */
++	{ PHY_CFG_DME,      0x155e, 0x00 },     /* LCC disable */
++	{ PHY_CFG_DME,      0x3000, 0x00 },     /* N_DeviceID */
++	{ PHY_CFG_DME,      0x3001, 0x01 },     /* N_DeviceID_valid */
++	{ PHY_CFG_DME,      0x4021, 0x01 },     /* T_PeerDeviceID */
++	{ PHY_CFG_DME,      0x4020, 0x01 },     /* T_ConnectionState */
++	{ PHY_CFG_PMA_COMN, 0x008c, 0x80 },
++	{ PHY_CFG_PMA_COMN, 0x0074, 0x10 },     /* PWM refclk selection */
++	{ PHY_CFG_PMA_TRSV, 0x0110, 0xb5 },
++	{ PHY_CFG_PMA_TRSV, 0x0134, 0x43 },
++	{ PHY_CFG_PMA_TRSV, 0x016c, 0x20 },
++	{ PHY_CFG_PMA_TRSV, 0x0178, 0xc0 },
++	{ PHY_CFG_PMA_TRSV, 0x00e0, 0x12 },
++	{ PHY_CFG_PMA_TRSV, 0x0164, 0x58 },
++	{ PHY_CFG_PMA_COMN, 0x008c, 0xc0 },
++	{ PHY_CFG_PMA_COMN, 0x008c, 0x00 },
++	{ PHY_CFG_WAIT,     0x0000, 200 },      /* common wait, us */
++};
++
++/* exynos8895.dtsi post-phy-init, applied after link startup. */
++static const struct phy_cfg greatlte_post_phy_init[] = {
++	{ PHY_CFG_DME,    0x9529, 0x01 },       /* UniPro debug mode on */
++	{ PHY_CFG_DME,    0x15a4, 0xfa },       /* PA_SaveConfigTime */
++	{ PHY_CFG_DME,    0x9529, 0x00 },
++	{ PHY_CFG_DME,    0x0200, 0x40 },
++	{ PHY_CFG_DME_RX, 0x0035, 0x05 },
++	{ PHY_CFG_DME_RX, 0x0073, 0x01 },
++	{ PHY_CFG_DME_RX, 0x0041, 0x02 },
++	{ PHY_CFG_DME_RX, 0x0042, 0xac },
++	{ PHY_CFG_DME,    0x0200, 0x00 },
++};
++
++static void
++ufs_phy_table(const struct phy_cfg *cfg, unsigned n, const char *name)
++{
++	unsigned ok = 0, bad = 0;
++
++	for (unsigned i = 0; i < n; i++) {
++		int error = 0;
++		switch (cfg[i].kind) {
++		case PHY_CFG_DME:
++			error = ufs_uic_cmd(UIC_DME_SET, cfg[i].addr << 16, 0,
++			    cfg[i].val, true);
++			break;
++		case PHY_CFG_DME_RX:
++			for (unsigned lane = 0; lane < 2; lane++) {
++				error |= ufs_uic_cmd(UIC_DME_SET,
++				    (cfg[i].addr << 16) | (4 + lane), 0,
++				    cfg[i].val, true);
++			}
++			break;
++		case PHY_CFG_DME_TX:
++			for (unsigned lane = 0; lane < 2; lane++) {
++				error |= ufs_uic_cmd(UIC_DME_SET,
++				    (cfg[i].addr << 16) | lane, 0,
++				    cfg[i].val, true);
++			}
++			break;
++		case PHY_CFG_PMA_COMN:
++			ufs_phy_pma_wr(PHY_PMA_COMN(cfg[i].addr), cfg[i].val);
++			break;
++		case PHY_CFG_PMA_TRSV:
++			for (unsigned lane = 0; lane < 2; lane++) {
++				ufs_phy_pma_wr(PHY_PMA_TRSV(cfg[i].addr, lane),
++				    cfg[i].val);
++			}
++			break;
++		case PHY_CFG_WAIT:
++			delay(cfg[i].val);
++			break;
++		}
++		if (error) {
++			bad++;
++		} else {
++			ok++;
++		}
++	}
++	printf("GREATLTE UFS: %s %u ok %u err\n", name, ok, bad);
++}
++
+ static int
+ ufs_program_list(void)
+ {
+@@ -467,6 +648,7 @@
+ 	if (hce & 1) {
+ 		printf("GREATLTE UFS: HCE already on (0x%x)\n", hce);
+ 	} else {
+ 		/* The vendor driver stops the controller and waits 5 ms first. */
+ 		ufs_wr(REG_HCE, 0);
+ 		for (int i = 0; i < 20 && (ufs_rd(REG_HCE) & 1); i++) {
+@@ -539,36 +721,46 @@
+-static int
+-ufs_bring_up_link(void)
+-{
+-	int error = ENXIO, ls;
+-
+-	printf("GREATLTE UFS: dma 0x%llx\n", su.dma_pa);
+-
+-	/* A: reuse the bootloader state without writing HCE. */
+-	if (ufs_take_over_host(false) == 0) {
+-		error = ufs_tur();
+-		printf("GREATLTE UFS: A lun0 TUR %d\n", error);
+-		if (error) {
+-			printf("GREATLTE UFS: waking the device\n");
+-			(void)ufs_wake_device();
+-			error = ufs_tur();
+-			printf("GREATLTE UFS: A lun0 TUR after wake %d\n", error);
+-		}
+-		if (error) {
+-			ls = ufs_uic_cmd(UIC_DME_LINK_STARTUP);
+-			printf("GREATLTE UFS: A link startup %d\n", ls);
+-			if (ls == 0) {
+-				error = ufs_tur();
+-				printf("GREATLTE UFS: A lun0 TUR after link %d\n", error);
+-			}
+-		}
+-	} else {
+-		printf("GREATLTE UFS: A takeover failed\n");
+-	}
+-
+-	/* B: enable the controller the way the vendor driver does. */
+-	if (error) {
+-		if (ufs_take_over_host(true) == 0) {
+-			ls = ufs_uic_cmd(UIC_DME_LINK_STARTUP);
+-			printf("GREATLTE UFS: B link startup %d\n", ls);
+-			printf("GREATLTE UFS: waking the device\n");
+-			(void)ufs_wake_device();
+-			error = ufs_tur();
+-			printf("GREATLTE UFS: B lun0 TUR %d\n", error);
+-		} else {
+-			printf("GREATLTE UFS: B takeover failed\n");
+-		}
+-	}
+-	return error;
+-}
++/*
++ * Bring the link and the device up. S-Boot leaves HCE off on the 8895, so the
++ * controller is enabled the way the vendor driver does, then the MPHY/UniPro
++ * tables run before DME_LINK_STARTUP. Link startup is retried with a fresh
++ * HCE cycle, as ufshcd_link_startup() does.
++ */
++static int
++ufs_bring_up_link(void)
++{
++	int error = ENXIO, ls = EIO;
++
++	printf("GREATLTE UFS: dma 0x%llx clkstop 0x%x force 0x%x acg 0x%x refclk 0x%x\n",
++	    su.dma_pa, ufs_rd(VS_CLKSTOP_CTRL), ufs_rd(VS_FORCE_HCS),
++	    ufs_rd(VS_ACG_DISABLE), ufs_rd(VS_MPHY_REFCLK_SEL));
++
++	if (ufs_take_over_host(true) != 0) {
++		printf("GREATLTE UFS: takeover failed\n");
++		return ENXIO;
++	}
++
++	for (int attempt = 0; attempt < 3; attempt++) {
++		if (attempt) {
++			int i;
++
++			printf("GREATLTE UFS: link retry %d\n", attempt + 1);
++			ufs_wr(REG_HCE, 0);
++			for (i = 0; i < 20 && (ufs_rd(REG_HCE) & 1); i++) {
++				delay(1000);
++			}
++			delay(5000);
++			ufs_wr(REG_HCE, 1);
++			for (i = 0; i < 100 && !(ufs_rd(REG_HCE) & 1); i++) {
++				delay(1000);
++			}
++			for (i = 0; i < 100 && !(ufs_rd(REG_HCS) & HCS_UCRDY); i++) {
++				delay(1000);
++			}
++			if (ufs_program_list() != 0) {
++				break;
++			}
++		}
++
++		ufs_pre_link_setup();
++		ufs_phy_table(greatlte_phy_init,
++		    sizeof(greatlte_phy_init) / sizeof(greatlte_phy_init[0]),
++		    "phy init");
++		ls = ufs_uic_cmd(UIC_DME_LINK_STARTUP, 0, 0, 0, false);
++		printf("GREATLTE UFS: link startup %d (try %d)\n", ls, attempt + 1);
++		if (ls) {
++			continue;
++		}
++
++		ufs_phy_table(greatlte_post_phy_init,
++		    sizeof(greatlte_post_phy_init) / sizeof(greatlte_post_phy_init[0]),
++		    "post phy");
++		error = ufs_tur();
++		printf("GREATLTE UFS: lun0 TUR %d\n", error);
++		if (error) {
++			printf("GREATLTE UFS: waking the device\n");
++			(void)ufs_wake_device();
++			error = ufs_tur();
++			printf("GREATLTE UFS: lun0 TUR after wake %d\n", error);
++		}
++		break;
++	}
++	if (error) {
++		printf("GREATLTE UFS: bring-up failed (link %d)\n", ls);
++	}
++	return error;
++}
+ 
+ static int
+ greatlte_ufs_open(__unused dev_t dev, int flags, __unused int devtype, __unused struct proc *p)
+@@ -783,6 +1074,7 @@
+ 	if (SecureDTLookupEntry(NULL, "/greatlte-ufs", &node) != kSuccess ||
+ 	    SecureDTGetProperty(node, "reg", (void const **)&reg, &size) != kSuccess ||
+ 	    size < 2 * sizeof(uintptr_t)) {
+ 		printf("GREATLTE UFS: no /greatlte-ufs node in the device tree\n");
+ 		return ENXIO;
+ 	}
+@@ -801,6 +1093,7 @@
+ 
+ 	su.regs = ml_io_map(reg[0], MAX(reg[1], (uintptr_t)GREATLTE_UFS_MAP));
++	su.unipro = ml_io_map(UNIPRO_BASE, UNIPRO_MAP_SIZE);
+ 	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
+ 	    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
+ 		printf("GREATLTE UFS: no contiguous DMA memory\n");
+@@ -861,7 +1154,10 @@
+ 		return;
+ 	}
+ 	if (!su.regs) {
+ 		su.regs = ml_io_map(reg[0], MAX(reg[1], (uintptr_t)GREATLTE_UFS_MAP));
++		su.unipro = ml_io_map(UNIPRO_BASE, UNIPRO_MAP_SIZE);
+ 	}
+ 	printf("GREATLTE UFS: probe: cap 0x%x ver 0x%x hcs 0x%x hce 0x%x is 0x%x utrlba 0x%x:%x dbr 0x%x rsr 0x%x\n",
+ 	    ufs_rd(REG_CAP), ufs_rd(REG_VER), ufs_rd(REG_HCS), ufs_rd(REG_HCE), ufs_rd(REG_IS),
