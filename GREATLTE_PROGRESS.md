@@ -202,3 +202,27 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - Not verified: the final root-wait line (hidden by the damaged panel until
   the 0220 console build), storage, display services, touch, keys, iOS
   userland.
+
+### Phase 3c: HCE accepted, but the first commands timed out
+
+- Probe v2 (`0223`) got past the HCE write but every SCSI command timed
+  out: the W-LUN START STOP UNIT, the per-LUN TEST UNIT READY set and
+  `READ(10) LBA1`. The UIC retry branch never ran: its result was stored
+  in a local and the compiler removed the whole branch as dead code.
+- Two defects were found by reading the 8895 vendor driver:
+  - the HCE write happened immediately and the 500 us wait could return
+    while the controller was still running its 1 -> 0 -> 1 initialization;
+    the vendor waits 1 ms after setting HCE and then up to ~50 ms for the
+    controller;
+  - UTRD DW0 used `1 << 28` (UTP command type "native UFS"), while the
+    vendor uses `UTP_CMD_TYPE_SCSI = 0` for SCSI commands.
+- Patch `0224-greatlte-ufs-takeover.patch` (build run `41185180237`,
+  kernel sha256 `41d7d14ec9149d91720a8f43a24f3fac5e2f1b1aae565fd2f8413871e15c480a`)
+  adds: A) reuse of S-Boot's controller when HCE is on; B) the vendor HCE
+  start sequence (write 0, 5 ms, write 1, 1 ms, wait for HCE=1, wait for
+  HCS=0xf); 1 s UIC polling; a shared `ufs_bring_up_link()` used by both
+  the probe and the root device, which wakes the device and retries
+  `DME_LINK_STARTUP`; and HCE/HCS/IS/DBR values on timeout.
+- `xnu-boot-ufs3.img` (18,300,944 bytes, sha256
+  `e1969f3083dd3e366087dde909744e8b1744d0af76cc6ab28e1f9ffd1a3ea773`)
+  carries the same `ufsprobe=1` cmdline and the new strings.
