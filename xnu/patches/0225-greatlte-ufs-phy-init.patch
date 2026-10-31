@@ -49,6 +49,8 @@
 +#define UNIPRO_MAP_SIZE         0x8000
 +#define UNIPRO_LINKSTARTUP_REQ  0x7850
 +#define UNIPRO_LINKSTARTUP_CNF  0x7854
++/* Exynos 8895 UFS PHY isolation bypass, from the vendor DT. */
++#define GREATLTE_UFS_PHY_PMU    0x16480724
  #define GREATLTE_UFS_MAP        0x2000
  
  #define HCS_DP          (1u << 0)
@@ -62,6 +64,7 @@
  static struct {
  	vm_offset_t regs;
 +	vm_offset_t unipro;                     /* UniPro block, diagnostics only */
++	vm_offset_t phy_pmu;
  	vm_offset_t dma;                        /* kernel VA of the DMA allocation */
  	uint64_t dma_pa;
  	uint8_t lun;
@@ -271,20 +274,20 @@
 +		switch (cfg[i].kind) {
 +		case PHY_CFG_DME:
 +			error = ufs_uic_cmd(UIC_DME_SET, cfg[i].addr << 16,
-+			    cfg[i].val, 0, true);
++			    0, cfg[i].val, true);
 +			break;
 +		case PHY_CFG_DME_RX:
 +			for (unsigned lane = 0; lane < 2; lane++) {
 +				error |= ufs_uic_cmd(UIC_DME_SET,
 +				    (cfg[i].addr << 16) | (4 + lane),
-+				    cfg[i].val, 0, true);
++				    0, cfg[i].val, true);
 +			}
 +			break;
 +		case PHY_CFG_DME_TX:
 +			for (unsigned lane = 0; lane < 2; lane++) {
 +				error |= ufs_uic_cmd(UIC_DME_SET,
 +				    (cfg[i].addr << 16) | lane,
-+				    cfg[i].val, 0, true);
++				    0, cfg[i].val, true);
 +			}
 +			break;
 +		case PHY_CFG_PMA_COMN:
@@ -379,6 +382,18 @@
 +	    su.dma_pa, ufs_rd(VS_CLKSTOP_CTRL), ufs_rd(VS_FORCE_HCS),
 +	    ufs_rd(VS_ACG_DISABLE), ufs_rd(VS_MPHY_REFCLK_SEL));
 +
++	if (!su.phy_pmu) {
++		su.phy_pmu = ml_io_map(GREATLTE_UFS_PHY_PMU, sizeof(uint32_t));
++	}
++	if (!su.phy_pmu) {
++		printf("GREATLTE UFS: cannot map PHY isolation register\n");
++		return ENXIO;
++	}
++	*(volatile uint32_t *)su.phy_pmu = 1;
++	__builtin_arm_dsb(0xf);
++	printf("GREATLTE UFS: PHY isolation bypass 0x%x\n",
++	    *(volatile uint32_t *)su.phy_pmu);
++
 +	if (ufs_take_over_host(true) != 0) {
 +		printf("GREATLTE UFS: takeover failed\n");
 +		return ENXIO;
@@ -448,6 +463,7 @@
  
  	su.regs = ml_io_map(reg[0], MAX(reg[1], (uintptr_t)GREATLTE_UFS_MAP));
 +	su.unipro = ml_io_map(UNIPRO_BASE, UNIPRO_MAP_SIZE);
++	su.phy_pmu = ml_io_map(GREATLTE_UFS_PHY_PMU, sizeof(uint32_t));
  	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
  	    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
  		printf("GREATLTE UFS: no contiguous DMA memory\n");
@@ -457,6 +473,7 @@
  	if (!su.regs) {
  		su.regs = ml_io_map(reg[0], MAX(reg[1], (uintptr_t)GREATLTE_UFS_MAP));
 +		su.unipro = ml_io_map(UNIPRO_BASE, UNIPRO_MAP_SIZE);
++		su.phy_pmu = ml_io_map(GREATLTE_UFS_PHY_PMU, sizeof(uint32_t));
  	}
  	printf("GREATLTE UFS: probe: cap 0x%x ver 0x%x hcs 0x%x hce 0x%x is 0x%x utrlba 0x%x:%x dbr 0x%x rsr 0x%x\n",
  	    ufs_rd(REG_CAP), ufs_rd(REG_VER), ufs_rd(REG_HCS), ufs_rd(REG_HCE), ufs_rd(REG_IS),

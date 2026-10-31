@@ -252,10 +252,11 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   successfully. The follow-up photo shows another boot at the takeover
   sequence but does not include the PHY-table summary or fresh UIC error
   details. Do not enable `rd=ufsroot0` or `ufsrw=1` yet.
-- Source review found a concrete UIC argument-order bug in patch 0225:
-  DME_SET passes the attribute value in ARG3, but UIC DME_SET requires the
-  value in ARG2 and ARG3 zero. Corrected the common, RX-lane and TX-lane
-  calls in commit `acf4400`.
+- Source review found that patch 0225 omitted the Exynos 8895 PHY isolation
+  bypass (`0x16480724`) that the Samsung driver enables before controller
+  and link startup. The follow-up also verifies the DME_SET argument order
+  against the vendor kernel: ARG2 is attribute-set type 0; ARG3 carries the
+  PHY attribute value.
 - CI run `41243017134` succeeded for commit `acf4400`; kernel sha256
   `5f174392331039f46e5a453d5d97e40969d4f61ede23c17e05e22d88a551ff21`.
   Repacked as `xnu-boot-ufs5.img` (18,300,944 bytes, sha256
@@ -268,7 +269,8 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   UFS failure: UIC command `0x16` reports `IS=0x4`, then
   `B link startup 5`; SCSI `0x00` and `0x1b` commands time out and the probe
   ends with 60. XNU itself continues to `Waiting on ... Apple_HFS`.
-- The ARG2 correction was therefore insufficient. These photos do not show
-  the preceding `phy init ... ok ... err` summary or full `uic err` detail,
-  so the remaining PHY/link-startup cause is not yet isolated. Do not mount
-  the UFS root or enable `ufsrw=1`.
+- The prior ARG2 change was incorrect and insufficient; it placed PHY values
+  in the attribute-set field. Restored the vendor ABI order and added the
+  missing PHY isolation bypass before host takeover. The new kernel still
+  needs a CI build and a device test. Do not mount the UFS root or enable
+  `ufsrw=1`.
