@@ -263,4 +263,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   with read-only `ufsprobe=1` arguments.
 - On 2026-10-31 the corrected image was flashed to BOOT only from TWRP;
   readback SHA-256 matched. USERDATA and other partitions were not touched.
-  Device boot result for this corrected PHY setup is pending.
+- Follow-up device photos (`IMG_20261031_233349214`,
+  `IMG_20261031_233623115`) show the corrected image still reaches the same
+  UFS failure: UIC command `0x16` reports `IS=0x4`, then
+  `B link startup 5`; SCSI `0x00` and `0x1b` commands time out and the probe
+  ends with 60. XNU itself continues to `Waiting on ... Apple_HFS`.
+- The ARG2 correction was therefore insufficient. These photos do not show
+  the preceding `phy init ... ok ... err` summary or full `uic err` detail,
+  so the remaining PHY/link-startup cause is not yet isolated. Do not mount
+  the UFS root or enable `ufsrw=1`.
