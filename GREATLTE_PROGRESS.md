@@ -662,3 +662,16 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   rebooted. The user reports the lock-screen clock has advanced to 4:15. The
   cleaner-screen, post-boot, and Y661 physical-touch results are pending. This
   remains a boot/UI milestone, not confirmation of a fully functional port.
+- **2026-11-01 quiet-console post-flash photos** (`IMG_20261101_234601983.jpg`
+  through `IMG_20261101_234911860.jpg`, nine photos): the first shows the Apple
+  logo during the expected reboot after the BOOT update. Later photos show
+  boot diagnostics, then the lock screen at 4:04 and 4:05. The final photos
+  return to diagnostic text while still showing SpringBoard/backboardd thread
+  dumps; one explicitly reports `CRASH PosterBoard[168] sig 5` and an exit
+  reason `ns 2 code 0x5: (none)`, plus a denied sandbox privilege 1002. This
+  supports a PosterBoard process crash/diagnostic overlay, not evidence of a
+  full device reboot on every minute boundary: there is only one Apple-logo
+  frame at the start of the sequence and no later boot logo, while the same
+  lock-screen time persists in the final screenshot. Touch remains unproven.
+  Next investigate the PosterBoard exit and denied privilege before changing
+  the touch driver; the framebuffer counter alone is not a UI frame-rate test.
