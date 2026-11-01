@@ -504,3 +504,10 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   packer confirms it fits the 40 MiB BOOT partition. At this check `adb
   devices -l` shows no attached device, so no BOOT write or reboot was
   attempted. USERDATA and all protected partitions remain unchanged.
+- The corrected BOOT candidate was subsequently flashed from TWRP after ADB
+  identified `greatlte`, BOOT resolved to `/dev/block/sda7`, and p7 reported
+  81920 sectors. The 18,321,424-byte write completed and readback SHA-256
+  matched `deca1dfae54678377b63166176f766aeb1caa2e4810a620b08b7c7ce8042390e`.
+  Rebooted to retry iOS startup. ADB disconnected as expected on leaving TWRP;
+  the post-fix launchd/UI result is pending a screen photo. No partition other
+  than BOOT was written in this step.
