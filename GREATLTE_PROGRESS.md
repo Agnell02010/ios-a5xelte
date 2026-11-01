@@ -404,3 +404,17 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   the read-only probe does not set it. Timeout cleanup no longer writes the
   Exynos-broken UTRLCLR register. This is based on the successful same-SoC S8
   implementation; it still needs a CI build and another device result.
+- CI run `41321503094` for commit `496f914` applied
+  `0228-greatlte-ufs-reuse-sboot-link.patch` and passed in 12m42s, including
+  the Cortex-A53 compatibility check. Kernel SHA-256:
+  `888e9b59e400a3898917092beec5dcd8085f2ebb7ca1b7f0977c0e7bda1f5e19`.
+- Built read-only probe `xnu-boot-ufs10.img` from that kernel and the preserved
+  stock BOOT backup. Payload command line includes `ufsprobe=1`, with no
+  `ufslinkrestart=1`, `rd=ufsroot0`, or `ufsrw=1`. Image size is 18,317,328
+  bytes; SHA-256:
+  `a222c80ea1848e037fb3087e901af3d074b41d3c24dc067150aeb9f0dcd69fc4`.
+- TWRP identified `greatlte`, BOOT resolved to `/dev/block/sda7`, size 81920
+  sectors. Flashed `xnu-boot-ufs10.img` to BOOT only and verified matching
+  readback SHA-256. Rebooted to run the probe; ADB is disconnected after
+  leaving TWRP. The screen result is pending. USERDATA and other partitions
+  remain untouched.
