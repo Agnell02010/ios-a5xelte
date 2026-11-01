@@ -1,10 +1,11 @@
 # greatlte (SM-N950F/FD, Exynos 8895): XNU / iOS 16 bring-up plan
 
-Status: **Phase 1 complete; Phase 2 in progress.** The greatlte probe ran on
-the phone and printed the S-Boot handoff. The XNU loader, ADT and `GREATLTE`
-kernel target are written; the first XNU build/boot is next. The reference
-implementation is the `herolte` branch (Galaxy S7, Exynos 8890), which reaches
-the iOS 16.7.16 "Hello" setup screen with touch and buttons.
+Status: **Phases 1–2 complete; Phase 3 UFS transport verified through
+read-only GPT enumeration.** XNU starts on the phone and its Exynos 8895 UFS
+driver has read the GPT and enumerated all 23 partitions. Mounting an HFSX
+root, the iOS userland, touch, and hardware keys remain to be brought up. The
+closest hardware reference is the public Galaxy S8 Exynos 8895 port; the
+Galaxy S7 `herolte` branch remains a useful XNU/iOS reference.
 
 ## Scope and non-goals
 
@@ -132,9 +133,10 @@ a hard hang is recovered with Vol- + Power ~7 s, then Vol+ + Bixby + Power.
 
 ### Phase 3 — storage and root
 
-- Adapt the herolte Exynos UFS driver to the 8895 controller at
-  `0x11120000` (UNIPRO `0x11110000`, protector `0x11130000`); add the
-  `greatlte-ufs` ADT node and a read-only probe first.
+- **Done, device verified 2026-11-01:** adapt the S8 Exynos 8895 UFS handoff
+  at `0x11120000` (UNIPRO `0x11110000`, protector `0x11130000`), add the
+  `greatlte-ufs` ADT node, and read-only enumerate the on-device GPT. The
+  S-Boot initialized link is reused and the W-LUN is awakened before LUN 0.
 - Then HFSX ramdisk root, then USERDATA read/write.
 - Success criterion: `hfs: mounted ... on device`, launchd starts.
 
@@ -196,8 +198,9 @@ at TIMA; do not grow it upward.
 
 1. Touch controller protocol/firmware differences from herolte.
 2. S2MPS17 rail mapping for touch and display.
-3. UFS host quirks after S-Boot handoff.
-4. Panel scaling/letterboxing for the 18.5:9 display.
+3. Complete HFSX root-device initialization and mount on the Note 8.
+4. Panel scaling/letterboxing for the 18.5:9 display; S8 touch code must be
+   adapted and physically checked for Note 8 dimensions and rail mapping.
 5. Real D22AP `/product` tree for iOS userland (missing until the IPSW is
    downloaded and extracted).
 
