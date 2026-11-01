@@ -274,3 +274,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   missing PHY isolation bypass before host takeover. The new kernel still
   needs a CI build and a device test. Do not mount the UFS root or enable
   `ufsrw=1`.
+
+### Phase 3e: repair 0225 before another device test
+
+- CI run `41249392008` reported success but skipped
+  `0225-greatlte-ufs-phy-init.patch` as malformed. Its `xnu-boot-ufs6.img`
+  artifact does not contain the PHY fix and must not be flashed.
+- Rebuilt 0225 as a fresh diff against the post-0224 source extracted from
+  run `41243017134`; `git apply --check` now succeeds against that exact base.
+- The regenerated patch also maps the MPHY PMA (`0x11124000`) separately from
+  the HCI block, and maps the isolation register through its aligned PMU page
+  (`0x16480000` + `0x724`). UIC commands now wait for `HCS.UCRDY` and report a
+  timeout rather than being issued while the controller is not ready.
+- No new kernel has been built or flashed yet. Device storage remains
+  untouched; the next image must be read-only (`ufsprobe=1`) and verified in
+  CI to include 0225 before BOOT is written.
