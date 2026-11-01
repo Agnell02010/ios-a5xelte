@@ -616,3 +616,9 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   anchor the call after `sweet_sample_start()` inside `greatlte_ufs_init()`.
   The corrected hunk applies to the locally reconstructed GreatLTE source;
   a new CI build is needed before preparing or installing a touch image.
+- CI run `41352068103` then failed because the context-free forward-declaration
+  hunk for `greatlte_touch_start()` was relocated to the end of
+  `greatlte_ufs.c`, after its call. Replaced that hunk with surrounding source
+  context. Local application now places the declaration at line 51 and the
+  call inside the UFS init path at line 1224. A further CI build is required;
+  no touch image has been produced or flashed.

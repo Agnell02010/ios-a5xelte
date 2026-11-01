@@ -6,8 +6,16 @@ diff --git a/bsd/conf/files b/bsd/conf/files
 diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
 --- a/bsd/dev/greatlte_ufs.c
 +++ b/bsd/dev/greatlte_ufs.c
-@@ -50,0 +51 @@
+@@ -45,8 +45,9 @@
+ /* osfmk/arm/cpu_data.h, not exported to the BSD layer */
+ extern int get_preemption_level(void);
+ extern kern_return_t kernel_thread_start(thread_continue_t, void *, thread_t *);
+ extern void thread_deallocate(thread_t);
+ extern int hz;
+ extern void sweet_sample_start(void);
 +extern void greatlte_touch_start(void);
+ 
+ #define REG_CAP         0x00
 @@ -1218,6 +1219,7 @@
  	printf("GREATLTE UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\n",
  	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
