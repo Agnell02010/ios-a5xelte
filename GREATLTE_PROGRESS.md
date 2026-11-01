@@ -444,6 +444,13 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   device tree to ignored local file `research/ipsw-x/d22ap.adt`; it is not
   committed. `tools/mkadt_greatlte.py` now imports its real `/product` node.
   Generated ADT is 9,596 bytes and includes the iPhone X product name and 63
-  product properties. The full OS/SystemOS/AppOS root is not built yet: local
-  build tools are absent and available scratch space is limited; no phone
+  product properties. The full OS/SystemOS/AppOS root is not built yet; the
+  local Linux environment lacks a safe APFS/LZFSE extraction path. No phone
   partitions were written.
+- The user has since made `/run/media/agnell0/Space1` available with 27.2 GiB
+  free. Linux's available APFS FUSE driver explicitly lacks LZFSE decoding,
+  so it is not suitable for producing this root. Added a dedicated private-
+  repository macOS workflow (`greatlte-ios-root.yml`) using Apple's `hdiutil`
+  path; it builds a 20 GiB HFSX root and publishes the split image only as a
+  private release. Run it from a private repository, then inspect/download the
+  resulting assets. No USERDATA write is authorized or performed.
