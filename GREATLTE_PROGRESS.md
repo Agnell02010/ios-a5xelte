@@ -382,3 +382,25 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - Next step: capture the screen after this boot and inspect the new post-link
   setup and SCSI timeout diagnostics. Until TUR and GPT reads succeed, do not
   mount UFS or enable `ufsrw=1`.
+- **2026-11-01 photo `IMG_20261101_161437503.jpg` (SHA-256
+  `b4921582aad8ca3e295cfe902b32ec434fcaeb2fdaeeb07a00c9baa9b499e4ea`):**
+  the complete 0227 run logs `post-link CPort connected`, then the W-LUN and
+  LUN 0 SCSI commands still time out (error 60); no response UPIU or GPT read
+  is obtained. The lower part of the photo begins a second UFS initialization
+  and cuts off at link startup, so it is incomplete evidence for that later
+  attempt.
+- Compared the failure with the public Galaxy S8 Exynos 8895 port. Its
+  working UFS path sets UTRD command type CT=1, treats HCE=0/HCS=0xf as the
+  running S-Boot host, and reuses that link instead of restarting HCE/PHY or
+  DME link startup; it wakes the device through the W-LUN. GreatLTE patch 0224
+  had changed CT to 0, and patches 0223–0227 restart and reconfigure the
+  already-used link. Those differences explain why the generic CPort change
+  did not resolve the timeout. Reference code: `Floppikrob/ios-galaxy-s8`,
+  `tools/dreamlte/apply-dreamlte.py` and `shim/dreamlte/ufs_probe.c`.
+- Added `0228-greatlte-ufs-reuse-sboot-link.patch`: restore Exynos storage
+  CT=1, accept HCE=0 when HCS reports all ready bits, and default to S-Boot's
+  existing link before waking the W-LUN and probing LUN 0. The previous HCE/
+  PHY/DME restart path is retained only behind explicit `ufslinkrestart=1`;
+  the read-only probe does not set it. Timeout cleanup no longer writes the
+  Exynos-broken UTRLCLR register. This is based on the successful same-SoC S8
+  implementation; it still needs a CI build and another device result.
