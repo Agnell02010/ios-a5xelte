@@ -455,3 +455,8 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   script derived from the herolte reference, and publishes the split image
   only as a private release. Run it from a private repository, then inspect/
   download the resulting assets. No USERDATA write is authorized or performed.
+- Private build repository created with only the workflow and its four
+  required files; donor notes, private addresses, dumps, and local IPSW are
+  excluded. Initial run `41337418395` was cancelled before any job steps
+  because its `macos-14` runner was retiring on 2026-11-02. Updated the
+  greatlte workflow to `macos-15`; retry pending.
