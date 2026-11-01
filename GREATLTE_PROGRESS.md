@@ -451,6 +451,7 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   free. Linux's available APFS FUSE driver explicitly lacks LZFSE decoding,
   so it is not suitable for producing this root. Added a dedicated private-
   repository macOS workflow (`greatlte-ios-root.yml`) using Apple's `hdiutil`
-  path; it builds a 20 GiB HFSX root and publishes the split image only as a
-  private release. Run it from a private repository, then inspect/download the
-  resulting assets. No USERDATA write is authorized or performed.
+  path; it builds a 20 GiB HFSX root, applies a GreatLTE-named system-tuning
+  script derived from the herolte reference, and publishes the split image
+  only as a private release. Run it from a private repository, then inspect/
+  download the resulting assets. No USERDATA write is authorized or performed.

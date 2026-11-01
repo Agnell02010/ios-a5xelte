@@ -88,7 +88,7 @@ jobs:
           echo "root=$root"
           sudo bash tools/a5xelte-stage-ios-root.sh "$os" "$sys" "$app" "$root"
           build=$(/usr/libexec/PlistBuddy -c 'Print :ProductBuildVersion' ipsw/BuildManifest.plist)
-          sudo bash tools/herolte-tune-ios-root.sh "$root" "$build"
+          sudo bash tools/greatlte-tune-ios-root.sh "$root" "$build"
           hdiutil detach "$root"; hdiutil detach "$os"; hdiutil detach "$sys"; hdiutil detach "$app"
           rm -f ipsw/os.dmg ipsw/systemos.dmg ipsw/appos.dmg
           df -h /
