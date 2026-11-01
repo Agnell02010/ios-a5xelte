@@ -444,19 +444,30 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   device tree to ignored local file `research/ipsw-x/d22ap.adt`; it is not
   committed. `tools/mkadt_greatlte.py` now imports its real `/product` node.
   Generated ADT is 9,596 bytes and includes the iPhone X product name and 63
-  product properties. The full OS/SystemOS/AppOS root is not built yet; the
-  local Linux environment lacks a safe APFS/LZFSE extraction path. No phone
-  partitions were written.
+  product properties.
 - The user has since made `/run/media/agnell0/Space1` available with 27.2 GiB
   free. Linux's available APFS FUSE driver explicitly lacks LZFSE decoding,
   so it is not suitable for producing this root. Added a dedicated private-
   repository macOS workflow (`greatlte-ios-root.yml`) using Apple's `hdiutil`
   path; it builds a 20 GiB HFSX root, applies a GreatLTE-named system-tuning
   script derived from the herolte reference, and publishes the split image
-  only as a private release. Run it from a private repository, then inspect/
-  download the resulting assets. No USERDATA write is authorized or performed.
+  only as a private release.
 - Private build repository created with only the workflow and its four
   required files; donor notes, private addresses, dumps, and local IPSW are
   excluded. Initial run `41337418395` was cancelled before any job steps
   because its `macos-14` runner was retiring on 2026-11-02. Updated the
-  greatlte workflow to `macos-15`; retry pending.
+  workflow to `macos-15` and run `41337486410` completed successfully.
+- The private release `greatlte-ios-root-16.7.16-41337486410` contains the
+  D22AP tree, SHA-256 manifest, and three compressed root-image segments.
+  All four release assets match the manifest. Reassembled
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/root.img`: 21,474,836,480
+  bytes, HFSX `HX` signature, SHA-256
+  `f9dd05225e8b082d71765bb3f5d47361bffb5b90ebb62a3ffcff4d1a7fb16410`.
+- Built the candidate BOOT image with `rd=ufsroot0 ufsroot=USERDATA ufsrw=1`
+  at `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-boot-greatlte-iosroot.img`,
+  SHA-256 `c5a4163a7c35a693ea0623975f2a06f834385e699160097cf0bd81c161941bdb`.
+  It has not been flashed. TWRP currently identifies `greatlte` / Galaxy
+  Note8; USERDATA resolves to `/dev/block/sda23`, 55,307,120,640 bytes. The
+  image fits, but writing it replaces the Android filesystem and `ufsrw=1`
+  allows iOS to modify that partition. No USERDATA write or new BOOT flash has
+  been made; obtain explicit user confirmation before that install trial.
