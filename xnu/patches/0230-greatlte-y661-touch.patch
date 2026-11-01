@@ -8,8 +8,14 @@ diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
 +++ b/bsd/dev/greatlte_ufs.c
 @@ -50,0 +51 @@
 +extern void greatlte_touch_start(void);
-@@ -1223,0 +1224 @@
+@@ -1218,6 +1219,7 @@
+ 	printf("GREATLTE UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\n",
+ 	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
+ 	    su.writable ? "read-write" : "read-only", su.dma_pa);
+ 	sweet_sample_start();
 +	greatlte_touch_start();
+ 	return 0;
+ }
 diff --git a/bsd/dev/greatlte_touch.c b/bsd/dev/greatlte_touch.c
 new file mode 100644
 --- /dev/null

@@ -610,3 +610,9 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   This confirms a persistent UI boot milestone, not a usable/full-speed iOS
   port. CI run `41351076498` for the Y661 touch patch was still building when
   these photos were reviewed; no resulting image has been installed.
+- CI run `41351076498` failed while compiling `greatlte_ufs.c`: the initial
+  context-free patch hunk placed the `greatlte_touch_start()` invocation at
+  file scope after the existing forward declaration. Corrected the patch to
+  anchor the call after `sweet_sample_start()` inside `greatlte_ufs_init()`.
+  The corrected hunk applies to the locally reconstructed GreatLTE source;
+  a new CI build is needed before preparing or installing a touch image.
