@@ -532,3 +532,11 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   return to the first launch lines is visible, so this frame does not support
   a reboot loop; repeated `xpcproxy` exec messages continue amid new jobs.
   `backboardd`, `SpringBoard`, and an iOS display are still not visible.
+- **2026-11-01 user report (~40 minutes after the 20:42 photo):** the display
+  continues showing repeated exec/service strings and has not reached the iOS
+  UI. No newer photo is present in Downloads and ADB currently lists no
+  device. Treat this as a userland startup stall or service respawn loop rather
+  than an acceptably slow first boot; the available photo does not identify
+  the exact process or prove that the kernel is rebooting. Next recovery is to
+  return to TWRP without wiping/formatting USERDATA, then collect any available
+  boot logs and inspect the root filesystem. No further writes have been made.
