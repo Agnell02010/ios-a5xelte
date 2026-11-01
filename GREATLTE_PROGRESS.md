@@ -634,3 +634,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `/dev/block/sda7`, 41,943,040 bytes. Flashed only BOOT p7. A full-partition
   readback's first 18,323,472 bytes hash to the candidate SHA-256 exactly.
   Rebooted; the post-flash screen and physical touch result are pending.
+- **2026-11-01 post-Y661 photos** (`IMG_20261101_230827027.jpg`,
+  `IMG_20261101_230840483.jpg`, `IMG_20261101_231129735.jpg`,
+  `IMG_20261101_231138714.jpg`, `IMG_20261101_231311155.jpg`,
+  `IMG_20261101_231317306.jpg`, `IMG_20261101_231331027.jpg`): the lock
+  screen remains present in photos over several minutes, and its clock changes
+  from 4:02 to 4:07; userland service launches continue, so the photos do not
+  show a boot loop. Framebuffer diagnostics still say `frames=1` in about
+  5.2 seconds, but this counts framebuffer copies and does not by itself prove
+  a 0.1 fps animated UI when the lock screen is mostly static. Photos show
+  `exec ...` and repeated `SWEET AKS` console messages covering part of the
+  screen. They do not show a `GREATLTE TOUCH` status line or demonstrate touch
+  input, so controller operation remains unknown. One photo shows battery at
+  4%; advise charging before further trials. Added `0231` to suppress the
+  repeated exec and AppleKeyStore diagnostics only on GreatLTE, retaining the
+  messages for other boards and leaving touch/framebuffer diagnostics enabled.
+  Patch application to the local reconstructed source succeeds; CI and a
+  cleaner-screen device trial are pending.
