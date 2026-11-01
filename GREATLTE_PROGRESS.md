@@ -540,3 +540,15 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   the exact process or prove that the kernel is rebooting. Next recovery is to
   return to TWRP without wiping/formatting USERDATA, then collect any available
   boot logs and inspect the root filesystem. No further writes have been made.
+- **TWRP read-only diagnostics after the reported long startup:** ADB sees
+  `greatlte` in recovery. TWRP reports no `hfsplus` filesystem support and
+  cannot mount `/data`; `/sys/fs/pstore` is empty (no persistent previous
+  kernel panic). Read the final 4,198,400 bytes of p23 (offset 55,302,922,240)
+  without writing; the region is all zero and has no `SWEETLOG` header. The
+  GreatLTE kernel path does not call the SWEET UFS log/sampler startup, so
+  those generic facilities did not record this run. Added
+  `0229-greatlte-process-sampler.patch` to start the existing sampler from the
+  GreatLTE UFS root init; it should print SpringBoard/backboardd thread
+  backtraces after 90 seconds and every 120 seconds. Patch applies to the
+  locally reconstructed 0222–0228 GreatLTE UFS source; CI build/device trial
+  still pending. USERDATA was read only during these diagnostics.
