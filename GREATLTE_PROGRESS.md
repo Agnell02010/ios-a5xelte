@@ -525,3 +525,10 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   log has not yet shown `backboardd`/`SpringBoard` or the iOS UI, so userland
   startup is progressing but the Hello screen remains unverified. The Android
   boot logo is still the framebuffer background. No new partition writes.
+- **2026-11-01 later startup photo** (`IMG_20261101_204211946.jpg`): the
+  visible launch log has advanced beyond the previous six frames and now
+  includes `com.apple.datamigrator`, `mobiletimerd`, `nfcd`, `followupd`,
+  `navspushd`, `nehelper`, and `routined`. No fresh kernel banner, panic, or
+  return to the first launch lines is visible, so this frame does not support
+  a reboot loop; repeated `xpcproxy` exec messages continue amid new jobs.
+  `backboardd`, `SpringBoard`, and an iOS display are still not visible.
