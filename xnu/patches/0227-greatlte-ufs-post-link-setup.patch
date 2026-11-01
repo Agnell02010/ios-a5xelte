@@ -1,0 +1,74 @@
+diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
+--- a/bsd/dev/greatlte_ufs.c
++++ b/bsd/dev/greatlte_ufs.c
+@@ -113,6 +113,8 @@
+ #define VS_TXPRDT_ENTRY_SIZE    0x1100
+ #define VS_RXPRDT_ENTRY_SIZE    0x1104
+ #define VS_UTRL_NEXUS_TYPE      0x1140
++#define VS_DATA_REORDER         0x1160
++#define VS_AXIDMA_BURST_LEN     0x116c
+ #define GREATLTE_UFS_MAP        0x2000
+ 
+ #define HCS_DP          (1u << 0)
+@@ -675,6 +677,50 @@
+ 	}
+ 	printf("GREATLTE UFS: %s %u ok %u err\n", name, ok, bad);
+ }
++/*
++ * Complete the UniPro transport connection after DME_LINK_STARTUP, following
++ * exynos_ufs_establish_connt() in the Samsung driver. A successful UIC link
++ * startup alone does not configure the CPort needed for SCSI traffic.
++ */
++static int
++ufs_post_link_setup(void)
++{
++	static const struct {
++		uint32_t attr;
++		uint32_t value;
++	} attrs[] = {
++		{ 0x4020, 0x0 },       /* T_CONNECTIONSTATE = CPORT_IDLE */
++		{ 0x3000, 0x0 },       /* N_DEVICEID */
++		{ 0x3001, 0x1 },       /* N_DEVICEID_VALID */
++		{ 0x4021, 0x1 },       /* T_PEERDEVICEID */
++		{ 0x4022, 0x0 },       /* T_PEERCPORTID */
++		{ 0x4025, 0x6 },       /* T_CPORTFLAGS = CPORT_DEF_FLAGS */
++		{ 0x4023, 0x0 },       /* T_TRAFFICCLASS */
++		{ 0x4020, 0x1 },       /* T_CONNECTIONSTATE = CPORT_CONNECTED */
++	};
++
++	for (unsigned i = 0; i < sizeof(attrs) / sizeof(attrs[0]); i++) {
++		int error = ufs_uic_cmd(UIC_DME_SET, attrs[i].attr << 16,
++		    0, attrs[i].value, true);
++		if (error) {
++			printf("GREATLTE UFS: post-link DME attr 0x%x value 0x%x failed %d\n",
++			    attrs[i].attr, attrs[i].value, error);
++			return error;
++		}
++	}
++
++	/* Exynos 8895 vendor post-link HCI setup (ufs-exynos.c). */
++	ufs_wr(VS_DATA_REORDER, 0xa);
++	ufs_wr(VS_AXIDMA_BURST_LEN, 0xf);
++	__builtin_arm_dsb(0xf);
++	printf("GREATLTE UFS: post-link CPort connected; reorder 0x%x burst 0x%x\n",
++	    ufs_rd(VS_DATA_REORDER), ufs_rd(VS_AXIDMA_BURST_LEN));
++	if (ufs_rd(VS_DATA_REORDER) != 0xa || ufs_rd(VS_AXIDMA_BURST_LEN) != 0xf) {
++		return EIO;
++	}
++	return 0;
++}
++
+ static int
+ ufs_program_list(void)
+ {
+@@ -852,6 +898,10 @@
+ 			continue;
+ 		}
+ 
++		error = ufs_post_link_setup();
++		if (error) {
++			continue;
++		}
+ 		ufs_phy_table(greatlte_post_phy_init,
+ 		    sizeof(greatlte_post_phy_init) / sizeof(greatlte_post_phy_init[0]),
+ 		    "post phy");

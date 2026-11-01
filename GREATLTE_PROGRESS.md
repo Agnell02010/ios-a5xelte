@@ -345,3 +345,22 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   partitions remain untouched. Next: read the new screen output, then use the
   UTRD/UCD evidence to choose a driver fix. Do not mount UFS or enable
   `ufsrw=1` until TUR and GPT reads succeed.
+- **2026-11-01 photos after 0226 (`IMG_20261101_153412521.jpg`,
+  `IMG_20261101_153416835.jpg`):** the controller still does not consume slot
+  0. At timeout, `HCE=1`, `HCS=0xf`, `IS=0`, `UTRLDBR=1`, `UTRLRSR=1`;
+  UTRL base `0x9589a000`, UCD address `0x9589b000`, UCD response region
+  offset/length `0x200/0x200`. OCS remains `0xf` and the response UPIU is all
+  zero. The command header uses W-LUN `0xd0` and advancing tags; no GPT read
+  succeeds. `DME_LINK_STARTUP` completes with result 0 but reports PA error
+  `0x80000010` (generic PA/line-reset indication); later UIC error registers
+  are zero. This narrows the failure to post-link transport/HCI setup or DMA
+  request consumption; it does not show a SCSI response.
+- Compared the source sequence with Samsung's Exynos UFS driver. Its
+  `exynos_ufs_post_link()` establishes the UniPro CPort after link startup,
+  then configures HCI data reorder and AXI DMA burst length. GreatLTE 0225
+  had not reproduced that post-link sequence. Added `0227-greatlte-ufs-post-link-setup.patch`
+  to set CPort idle, device/peer IDs, peer CPort, default CPort flags, traffic
+  class, then connected state, and configure/read back those two HCI fields.
+  Patches 0222–0227 apply in order locally. This is a source-based correction
+  candidate; it still needs CI build and a read-only device trial. Continue
+  using `ufsprobe=1`, with no root mount or USERDATA writes.
