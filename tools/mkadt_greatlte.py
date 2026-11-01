@@ -43,9 +43,9 @@ def child(node, name):
 
 
 def build():
-    # The userland is the iPhone X (iPhone10,3 / D22AP) IPSW. Without the real
-    # D22AP tree there is no /product node yet; the early XNU boot path does
-    # not need it. Add research/ipsw-x/d22ap.adt before userland bring-up.
+    # The userland is the iPhone X (iPhone10,3 / D22AP). When the owner has
+    # supplied its IPSW, mkadt.d22ap_product() imports the real /product
+    # properties from research/ipsw-x/d22ap.adt (kept out of git).
     root = mkadt.build(seed=os.urandom(64), qemu=True)
     set_prop(root, 'compatible', mkadt.cstr('D22AP') + mkadt.cstr('iPhone10,3') +
              mkadt.cstr('samsung,a5xelte') + mkadt.cstr('samsung,greatlte') +
@@ -58,6 +58,13 @@ def build():
     set_prop(chosen, 'dram-size', mkadt.u64(DRAM_SIZE))
     set_prop(chosen, 'firmware-version', mkadt.cstr('greatlte-entry'))
     set_prop(chosen, 'system-firmware-version', mkadt.cstr('greatlte-entry'))
+
+    product_props = mkadt.d22ap_product()
+    if product_props:
+        # mkadt.build() allocates its synthetic-node phandles below 1000.
+        root.children.append(mkadt.node('product', [
+            ('AAPL,phandle', mkadt.u32(1001)),
+        ] + product_props))
 
     cpus = child(root, 'cpus')
     cpus.children = []

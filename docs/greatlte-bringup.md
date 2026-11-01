@@ -201,8 +201,8 @@ at TIMA; do not grow it upward.
 3. Complete HFSX root-device initialization and mount on the Note 8.
 4. Panel scaling/letterboxing for the 18.5:9 display; S8 touch code must be
    adapted and physically checked for Note 8 dimensions and rail mapping.
-5. Real D22AP `/product` tree for iOS userland (missing until the IPSW is
-   downloaded and extracted).
+5. Build the iOS root from the supplied iOS 16.7.16 IPSW; its D22AP
+   `/product` properties are now imported into the generated Note 8 ADT.
 
 ## Safety
 

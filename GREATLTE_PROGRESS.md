@@ -438,3 +438,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   iPhone X iOS 16.7.16 HFSX root from an owner-provided IPSW, and only then
   request explicit confirmation before any write to USERDATA. Touch, buttons,
   and iOS userland remain separate unverified milestones.
+- Owner-provided IPSW located at `/home/agnell0/Archivio/Downloads/` and
+  inspected read-only with `tools/a5xelte-inspect-ipsw.py`: iPhone10,3 and
+  iPhone10,6, iOS 16.7.16 build 20H392, D22AP. Extracted the 182 KiB D22AP
+  device tree to ignored local file `research/ipsw-x/d22ap.adt`; it is not
+  committed. `tools/mkadt_greatlte.py` now imports its real `/product` node.
+  Generated ADT is 9,596 bytes and includes the iPhone X product name and 63
+  product properties. The full OS/SystemOS/AppOS root is not built yet: local
+  build tools are absent and available scratch space is limited; no phone
+  partitions were written.
