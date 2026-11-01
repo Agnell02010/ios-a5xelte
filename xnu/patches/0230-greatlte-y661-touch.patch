@@ -1,0 +1,319 @@
+diff --git a/bsd/conf/files b/bsd/conf/files
+--- a/bsd/conf/files
++++ b/bsd/conf/files
+@@ -110,0 +111 @@
++bsd/dev/greatlte_touch.c		standard
+diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
+--- a/bsd/dev/greatlte_ufs.c
++++ b/bsd/dev/greatlte_ufs.c
+@@ -50,0 +51 @@
++extern void greatlte_touch_start(void);
+@@ -1223,0 +1224 @@
++	greatlte_touch_start();
+diff --git a/bsd/dev/greatlte_touch.c b/bsd/dev/greatlte_touch.c
+new file mode 100644
+--- /dev/null
++++ b/bsd/dev/greatlte_touch.c
+@@ -0,0 +1,302 @@
++/*
++ * Galaxy Note8 Y661 touchscreen polling path.
++ *
++ * Board wiring and command/event format follow the GreatLTE Samsung device
++ * tree and its sec_ts_y661 driver. The Exynos8895 HSI2C register block and
++ * 8-byte coordinate event layout match the S8's S6SY761 path; this file
++ * reads the Y661 device ID through its own 0x22 command and never updates
++ * controller firmware or NVM.
++ */
++#if defined(ARM64_BOARD_CONFIG_GREATLTE)
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <kern/clock.h>
++#include <kern/thread.h>
++#include <kern/sched_prim.h>
++#include <machine/machine_routines.h>
++#include <pexpert/pexpert.h>
++
++extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
++extern kern_return_t kernel_thread_start(thread_continue_t, void *, thread_t *);
++extern void thread_deallocate(thread_t);
++extern void sweet_hid_touch(int finger, int down, int x, int y);
++
++#define GREAT_TS_HSI2C_PA       0x108e0000u
++#define GREAT_TS_ALIVE_PA       0x164b0000u
++#define GREAT_TS_GPA1_DAT       0x44u
++#define GREAT_TS_ADDR           0x48u
++#define GREAT_TS_FINGERS        10u
++#define GREAT_TS_EVENT_SIZE     8u
++#define GREAT_TS_READ_ONE       0x60u
++#define GREAT_TS_READ_ALL       0x61u
++#define GREAT_TS_APP_MODE       0x20u
++#define GREAT_TS_TOUCH_FUNC     0x30u
++#define GREAT_TS_SENSE_ON       0x10u
++
++static vm_offset_t great_ts_i2c;
++static vm_offset_t great_ts_alive;
++static int great_ts_sleep;
++static bool great_ts_down[GREAT_TS_FINGERS];
++static uint16_t great_ts_x[GREAT_TS_FINGERS];
++static uint16_t great_ts_y[GREAT_TS_FINGERS];
++
++static uint32_t
++great_ts_read(vm_offset_t base, uint32_t off)
++{
++	uint32_t v = *(volatile uint32_t *)(base + off);
++	__asm__ volatile("dmb oshld" ::: "memory");
++	return v;
++}
++
++static void
++great_ts_write(vm_offset_t base, uint32_t off, uint32_t v)
++{
++	__asm__ volatile("dmb oshst" ::: "memory");
++	*(volatile uint32_t *)(base + off) = v;
++	__asm__ volatile("dsb osh" ::: "memory");
++}
++
++/* Exynos8895 USI09 HSI2C, 26 MHz source and 400 kHz bus. */
++static void
++great_ts_i2c_reset(void)
++{
++	vm_offset_t b = great_ts_i2c;
++	great_ts_write(b, 0x00, great_ts_read(b, 0x00) | (1u << 31));
++	great_ts_write(b, 0x00, great_ts_read(b, 0x00) & ~(1u << 31));
++	unsigned ftl = (great_ts_read(b, 0x40) >> 16) & 7u;
++	unsigned temp = 26000000u / 400000u - (ftl + 3u) * 2u;
++	unsigned div = temp / 512u;
++	unsigned cyc = (temp + ((ftl + 3u) % (div + 1u)) * 2u) / (div + 1u) - 2u;
++	unsigned low = cyc * 64u / 100u;
++	unsigned high = cyc - low;
++	great_ts_write(b, 0x60, low << 24 | low << 16 | low << 8);
++	great_ts_write(b, 0x64, (low / 2u) << 24 | low << 8 | high);
++	great_ts_write(b, 0x68, div << 16 | cyc);
++	great_ts_write(b, 0x6c, low / 2u);
++	great_ts_write(b, 0x48, great_ts_read(b, 0x48) & ~(1u << 31));
++	great_ts_write(b, 0x00, 0x9u);
++	great_ts_write(b, 0x08, 0xfu);
++	great_ts_write(b, 0x40, great_ts_read(b, 0x40) | (1u << 31));
++}
++
++/* INT_STATUS: bit 7 transfer done; bits 8-11 indicate I2C errors. */
++static bool
++great_ts_wait_done(void)
++{
++	for (unsigned us = 0; us < 20000u; us++) {
++		uint32_t s = great_ts_read(great_ts_i2c, 0x24);
++		if (s & 0xf80u) {
++			great_ts_write(great_ts_i2c, 0x24, s);
++			return (s & 0xf00u) == 0;
++		}
++		delay(1);
++	}
++	return false;
++}
++
++/* Send a command/data prefix and optionally read its response. */
++static bool
++great_ts_xfer(const uint8_t *w, unsigned wlen, uint8_t *r, unsigned rlen)
++{
++	vm_offset_t b = great_ts_i2c;
++	if ((!wlen && !rlen) || wlen > 32u || rlen > 256u) {
++		return false;
++	}
++	great_ts_write(b, 0x24, great_ts_read(b, 0x24));
++	great_ts_write(b, 0x70, GREAT_TS_ADDR << 10);
++	great_ts_write(b, 0x20, 0xf80u);
++	if (wlen) {
++		great_ts_write(b, 0x04, 3u);
++		great_ts_write(b, 0x00, 0x89u);
++		great_ts_write(b, 0x44, (rlen ? 0u : (1u << 17)) | wlen | (1u << 31));
++		for (unsigned i = 0; i < wlen; i++) {
++			for (unsigned n = 0; n < 1000u &&
++			    (great_ts_read(b, 0x30) & (1u << 7)); n++) {
++				delay(1);
++			}
++			great_ts_write(b, 0x34, w[i]);
++		}
++		if (!great_ts_wait_done()) {
++			goto fail;
++		}
++	}
++	if (rlen) {
++		great_ts_write(b, 0x04, 3u);
++		great_ts_write(b, 0x00, 0x49u);
++		great_ts_write(b, 0x44, (1u << 16) | (1u << 17) | rlen | (1u << 31));
++		for (unsigned i = 0; i < rlen; i++) {
++			unsigned n = 0;
++			while ((great_ts_read(b, 0x30) & (1u << 24)) && n++ < 20000u) {
++				delay(1);
++			}
++			if (great_ts_read(b, 0x30) & (1u << 24)) {
++				goto fail;
++			}
++			r[i] = (uint8_t)great_ts_read(b, 0x38);
++		}
++		if (!great_ts_wait_done()) {
++			goto fail;
++		}
++	}
++	great_ts_write(b, 0x00, 0x9u);
++	return true;
++fail:
++	great_ts_i2c_reset();
++	return false;
++}
++
++static bool
++great_ts_cmd_read(uint8_t cmd, uint8_t *data, unsigned n)
++{
++	return great_ts_xfer(&cmd, 1u, data, n);
++}
++
++static void
++great_ts_report(const uint8_t ev[GREAT_TS_EVENT_SIZE])
++{
++	/* sec_ts event id 0 is a coordinate record; 1/2 are status/gesture. */
++	if ((ev[0] & 3u) != 0 || !(ev[0] & 0x3cu)) {
++		return;
++	}
++	unsigned id = ((ev[0] & 0x3cu) >> 2) - 1u;
++	unsigned state = (ev[0] >> 6) & 3u;
++	if (id >= GREAT_TS_FINGERS) {
++		return;
++	}
++	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] >> 4);
++	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] & 0xfu);
++	/* iOS userland uses the donor's 1080x1920 HID coordinate space. */
++	x = x * 1080u / 4096u;
++	y = y * 1920u / 4096u;
++	if (state == 1u || state == 2u) {
++		if (!great_ts_down[id]) {
++			printf("GREATLTE TOUCH: down id=%u x=%u y=%u\n", id, x, y);
++		}
++		great_ts_down[id] = true;
++		great_ts_x[id] = (uint16_t)x;
++		great_ts_y[id] = (uint16_t)y;
++		if (id < 5u) {
++			sweet_hid_touch((int)id, 1, (int)x, (int)y);
++		}
++	} else if (state == 3u && great_ts_down[id]) {
++		great_ts_down[id] = false;
++		if (id < 5u) {
++			sweet_hid_touch((int)id, 0, great_ts_x[id], great_ts_y[id]);
++		}
++	}
++}
++
++static void
++great_ts_wait(unsigned ms)
++{
++	uint64_t deadline;
++	clock_interval_to_deadline(ms, NSEC_PER_MSEC, &deadline);
++	(void)assert_wait_deadline(&great_ts_sleep, THREAD_UNINT, deadline);
++	thread_block(THREAD_CONTINUE_NULL);
++}
++
++static void
++great_ts_thread(void *arg, wait_result_t result)
++{
++	uint8_t buf[GREAT_TS_EVENT_SIZE * 32u];
++	unsigned errors = 0;
++	(void)arg;
++	(void)result;
++	printf("GREATLTE TOUCH: event worker started\n");
++	for (;;) {
++		if (great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u) {
++			great_ts_wait(8);
++			continue;
++		}
++		if (!great_ts_cmd_read(GREAT_TS_READ_ONE, buf, GREAT_TS_EVENT_SIZE)) {
++			if (++errors <= 8u || !(errors & 255u)) {
++				printf("GREATLTE TOUCH: event read failed (%u)\n", errors);
++			}
++			great_ts_wait(20);
++			continue;
++		}
++		unsigned left = buf[7] & 0x3fu;
++		if (left >= 32u) {
++			uint8_t clear_stack = 0x62u; /* SEC_TS_CMD_CLEAR_EVENT_STACK */
++			(void)great_ts_xfer(&clear_stack, 1u, NULL, 0u);
++			if (++errors <= 8u || !(errors & 255u)) {
++				printf("GREATLTE TOUCH: cleared invalid event count %u\n", left);
++			}
++			great_ts_wait(20);
++			continue;
++		}
++		if (buf[0] && left &&
++		    !great_ts_cmd_read(GREAT_TS_READ_ALL, buf + GREAT_TS_EVENT_SIZE,
++		    left * GREAT_TS_EVENT_SIZE)) {
++			left = 0;
++		}
++		if (!buf[0]) {
++			great_ts_wait(4);
++			continue;
++		}
++		for (unsigned i = 0; i <= left; i++) {
++			uint8_t *ev = buf + i * GREAT_TS_EVENT_SIZE;
++			if (ev[0]) {
++				great_ts_report(ev);
++			}
++		}
++		errors = 0;
++	}
++}
++
++void
++greatlte_touch_start(void)
++{
++	uint8_t status = 0, id[5] = {0}, functions[2] = {0};
++	uint8_t set_func[3] = { GREAT_TS_TOUCH_FUNC, 0, 0 };
++	uint8_t sense = GREAT_TS_SENSE_ON;
++	thread_t thread;
++	int enabled = 1;
++	(void)PE_parse_boot_argn("greatltetouch", &enabled, sizeof(enabled));
++	if (!enabled) {
++		printf("GREATLTE TOUCH: disabled\n");
++		return;
++	}
++	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
++	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
++	if (!great_ts_i2c || !great_ts_alive) {
++		printf("GREATLTE TOUCH: MMIO map failed\n");
++		return;
++	}
++	great_ts_i2c_reset();
++	if (!great_ts_cmd_read(0x55u, &status, 1u)) {
++		printf("GREATLTE TOUCH: boot status read failed\n");
++		return;
++	}
++	if (status != GREAT_TS_APP_MODE) {
++		printf("GREATLTE TOUCH: controller not in app mode (status %#x)\n", status);
++		return;
++	}
++	if (great_ts_cmd_read(0x22u, id, sizeof(id))) {
++		printf("GREATLTE TOUCH: Y661 id %02x %02x %02x %02x %02x\n",
++		    id[0], id[1], id[2], id[3], id[4]);
++	} else {
++		printf("GREATLTE TOUCH: device id read failed\n");
++	}
++	/* Preserve the controller's current features and ensure touch is enabled. */
++	if (!great_ts_cmd_read(GREAT_TS_TOUCH_FUNC, functions, sizeof(functions))) {
++		printf("GREATLTE TOUCH: function read failed\n");
++		return;
++	}
++	functions[0] |= 1u;
++	set_func[1] = functions[0];
++	set_func[2] = functions[1];
++	if (!great_ts_xfer(set_func, sizeof(set_func), NULL, 0u) ||
++	    !great_ts_xfer(&sense, 1u, NULL, 0u)) {
++		printf("GREATLTE TOUCH: enable sequence failed\n");
++		return;
++	}
++	printf("GREATLTE TOUCH: Y661 active, irq=%u\n",
++	    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u));
++	if (kernel_thread_start(great_ts_thread, NULL, &thread) == KERN_SUCCESS) {
++		thread_deallocate(thread);
++	} else {
++		printf("GREATLTE TOUCH: thread start failed\n");
++	}
++}
++#endif /* ARM64_BOARD_CONFIG_GREATLTE */

@@ -558,3 +558,42 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   unresolved `sweet_sample_start` reference. Updated 0229 to extend the guard
   to GREATLTE as well; the patch applies after 0207 in a local source
   reconstruction. No device image was produced or flashed from the failed run.
+- CI run `41347832800` built successfully on commit `30bd1db`; kernel
+  `kernel.development.greatlte` SHA-256
+  `93f5f8ac53a0778e4ae9fbcc3e545728788bf9be83db029f3cee6f3b67ad92c9`.
+  The built kernel contains `_sweet_sample_start`; the artifact manifest
+  matches its hash. Prepared BOOT image
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-boot-greatlte-native-sampler.img`
+  (18,321,424 bytes, SHA-256
+  `cbd28a97d7e546c224e940c024f82c6a27a085c1e5da7520d562f53ddd84120a`)
+  with the existing iOS root/signing flags plus `sweetfb_native=1` and
+  `cpus=1`. This follows the S8 port's workaround for its failed first frame
+  in iPhone X logical resolution; it is a hypothesis to test on GreatLTE.
+- Flashed this image from TWRP after confirming device `greatlte`, BOOT
+  `/dev/block/sda7`, and 81920 sectors. Readback SHA-256 matched exactly.
+  Rebooted to the iOS trial. Photos received at 22:02–22:03 local
+  (`IMG_20261101_220234814 (1).jpg`,
+  `IMG_20261101_220300999 (1).jpg`, `IMG_20261101_220347419.jpg`) show the
+  iOS lock screen on the Note8, with `SWEET SURF: SpringBoard` in the nearby
+  console output. This is the first device evidence of the iOS UI appearing;
+  it strongly supports the S8 native-framebuffer workaround, though the image
+  alone does not isolate it as the only cause. One framebuffer report shows
+  only 1 frame in 5268 ms (~0.1 fps), so rendering is still extremely slow.
+  Another photo shows `assetsd` crashing (namespace 2, code 0x6); the UI is
+  still visible. Touch input and lock-screen interaction have not been tested,
+  and the GreatLTE touch driver is not implemented. The photos do not show a
+  process-sampler backtrace yet. No partition other than BOOT was written;
+  USERDATA was not changed.
+- Touch source comparison for the next step: GreatLTE's Samsung DTS describes
+  `hsi2c_23` at `0x108e0000`, touchscreen address `0x48`, GPA1-0 interrupt,
+  4095x4095 coordinates, `tsp_io`/`tsp_avdd` boot-on rails, and firmware
+  `y661_great.fw`. Its Y661 driver uses coordinate/status/gesture event IDs
+  0/1/2 and the same 8-byte coordinate record layout and `0x60`/`0x61` event
+  commands as the S8 touch path. The S8 controller is S6SY761, so the bus
+  transfer and coordinate decoding are reusable, but its ID command is not:
+  GreatLTE reads the Y661 ID with `0x22`. Patch `0230` adds a polled GreatLTE
+  touch path that reads the Y661 ID, preserves existing touch-function bits,
+  enables sensing, and forwards touch events to SweetHID; it does not update
+  controller firmware or NVM. The patch applies to the source tree from the
+  successful sampler build. CI compilation and physical touch interaction are
+  still pending.
