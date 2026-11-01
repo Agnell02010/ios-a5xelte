@@ -466,8 +466,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - Built the candidate BOOT image with `rd=ufsroot0 ufsroot=USERDATA ufsrw=1`
   at `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-boot-greatlte-iosroot.img`,
   SHA-256 `c5a4163a7c35a693ea0623975f2a06f834385e699160097cf0bd81c161941bdb`.
-  It has not been flashed. TWRP currently identifies `greatlte` / Galaxy
-  Note8; USERDATA resolves to `/dev/block/sda23`, 55,307,120,640 bytes. The
-  image fits, but writing it replaces the Android filesystem and `ufsrw=1`
-  allows iOS to modify that partition. No USERDATA write or new BOOT flash has
-  been made; obtain explicit user confirmation before that install trial.
+  TWRP identified `greatlte` / Galaxy Note8; USERDATA resolved to
+  `/dev/block/sda23`, 55,307,120,640 bytes. Following the owner's explicit
+  install authorization, wrote the 20 GiB HFSX image to p23 (leaving other
+  partitions unchanged) and read back its first 20 GiB; SHA-256 matched the
+  host image. Saved the current 40 MiB BOOT partition as
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/boot-before-root.img`
+  (SHA-256 `085fea713a8312f0bb2b269e370858db94270d0545f4150d0495b3d46ad8ca12`);
+  stock BOOT and EFS backups remain intact and their hashes match.
+- Wrote the XNU root boot image to BOOT p7 (`/dev/block/sda7`) and read back
+  20 MiB; the candidate's 18,321,424-byte prefix matched SHA-256
+  `c5a4163a7c35a693ea0623975f2a06f834385e699160097cf0bd81c161941bdb`.
+  Rebooted from TWRP. At the last check the phone no longer enumerated on USB
+  and ADB was unavailable. Since this port has no iOS USB driver, that alone
+  does not distinguish a successful boot from a kernel hang. Screen result,
+  root mount, launchd, and UI behavior remain unverified; next evidence needed
+  is the phone display or a return to TWRP with a persistent panic log.
