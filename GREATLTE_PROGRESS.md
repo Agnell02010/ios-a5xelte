@@ -299,6 +299,35 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `efe44c907d8119d2511c8ca6bb00379188b8001477d30981e696a6f2ab3fd33b`).
   Its embedded command line includes `ufsprobe=1` and contains neither
   `rd=ufsroot0` nor `ufsrw=1`; the image has not been flashed.
-- At the latest check `adb devices` showed no connected device. The
-  diagnostic image is ready, but a BOOT-only flash/readback and physical UFS
-  result remain pending. USERDATA and all other partitions remain untouched.
+- On 2026-11-01 the Note 8 was detected in TWRP as `greatlte`; the
+  BOOT-by-name symlink resolved to `/dev/block/sda7` and its size was the
+  expected 81920 sectors. Flashed `xnu-boot-ufs7.img` to BOOT only. Readback
+  SHA-256 matched `efe44c907d8119d2511c8ca6bb00379188b8001477d30981e696a6f2ab3fd33b`.
+  USERDATA and all other partitions were not touched.
+- Rebooted the device to run the read-only UFS probe. ADB did not reconnect
+  within 90 seconds after leaving TWRP; this is consistent with the boot
+  handoff but does not establish whether XNU reached the UFS diagnostic.
+- Photo `IMG_20261101_113713248.jpg` shows XNU past CPU startup, HID
+  registration, platform expert startup and kernel post-boot initialization;
+  it has no UFS result. The later photo
+  `IMG_20261101_113943718.jpg` shows the UFS diagnostic and root wait.
+- **2026-11-01 photo evidence, read-only UFS probe:** the PHY table reports
+  `9 ok 0 err`; `DME_LINK_STARTUP` reports result 0 (the captured UIC status
+  is `0x404`, with UIC error details also printed). The first SCSI TUR then
+  times out with `HCE=1`, `HCS=0xf`, `IS=0`, and `UTRLDBR=1`. W-LUN TUR,
+  START STOP UNIT, and the later LUN 0 TUR also time out; bring-up ends with
+  error 60 and XNU reaches `Waiting on ... Apple_HFS`. This proves that the
+  kernel/PHY diagnostic path runs and link startup returns success, but it
+  does **not** prove that the UFS device accepts SCSI commands or that the
+  link is fully operational. No GPT was read. USERDATA and all other
+  partitions remain untouched.
+- The `Archivio/Downloads` and `Space2/Downloads` copies of each photo are
+  byte-identical; the SHA-256 for `IMG_20261101_113943718.jpg` is
+  `ccc28e79…9d7c054`.
+- Added `0226-greatlte-ufs-timeout-diagnostics.patch`. On a SCSI timeout it
+  snapshots the slot-0 UTRD and UCD before clearing the wedged slot, and logs
+  the command/response UPIU, UTRL base/run registers, Nexus register and UIC
+  error registers. `git apply --check` succeeds after patches 0222–0225.
+  No kernel build or device test has run with 0226 yet. Next: build it in CI,
+  verify 0226 was applied, then use a read-only `ufsprobe=1` BOOT trial. Do
+  not mount UFS or enable `ufsrw=1` until TUR and GPT reads succeed.
