@@ -364,3 +364,21 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   Patches 0222–0227 apply in order locally. This is a source-based correction
   candidate; it still needs CI build and a read-only device trial. Continue
   using `ufsprobe=1`, with no root mount or USERDATA writes.
+- CI run `41318162902` completed successfully for commit `13439af`
+  (`0227-greatlte-ufs-post-link-setup.patch`), including the A53 compatibility
+  check. Downloaded kernel SHA-256:
+  `5ac226c529de4aa94aca0e22a861daeb928f859d1ae5a4a4c6db0cb8216bafb7`.
+  Kernel strings contain the post-link CPort-connected and failure markers.
+- Built `xnu-boot-ufs9.img` from that kernel and the preserved stock BOOT
+  backup. The appended payload contains `ufsprobe=1`; it has no `rd=ufsroot0`
+  or `ufsrw=1`. The packaged image is 18,317,328 bytes (below the 40 MiB BOOT
+  size) and SHA-256 is
+  `8dcc47fb2e40a76093f9ba8980137f9084b1c29b9ef5df1d58a333942bb8f267`.
+- TWRP again identified the phone as `greatlte`, resolved BOOT to
+  `/dev/block/sda7`, and reported 81920 sectors. Flashed `xnu-boot-ufs9.img`
+  to BOOT only; the readback SHA-256 matched. Rebooted for the diagnostic
+  trial. ADB is disconnected after leaving TWRP; no new screen result is
+  available yet. All other partitions, including USERDATA, remain untouched.
+- Next step: capture the screen after this boot and inspect the new post-link
+  setup and SCSI timeout diagnostics. Until TUR and GPT reads succeed, do not
+  mount UFS or enable `ufsrw=1`.
