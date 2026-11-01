@@ -482,3 +482,25 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   does not distinguish a successful boot from a kernel hang. Screen result,
   root mount, launchd, and UI behavior remain unverified; next evidence needed
   is the phone display or a return to TWRP with a persistent panic log.
+- **2026-11-01 first root-boot photo** (`IMG_20261101_202912065.jpg`): the
+  Note 8 successfully reuses the S-Boot UFS link, starts the device, reads
+  USERDATA as read-write, and mounts `IOSROOT` as `ufsroot0`. BSD and kernel
+  startup continue. Userland then fails at `load_init_program`: the
+  development launchd path is absent and `/sbin/launchd` is killed with
+  `CS_KILLED` (`namespace 9 code 0xe`). This is evidence of a kernel code
+  signing enforcement mismatch, not a UFS/root mount failure. The screen also
+  contains later kernel output, but the photo does not establish that
+  launchd or SpringBoard recovered. The boot command line omitted
+  `cs_enforcement_disable=1` (and the unsigned-userland boot settings used by
+  the reference port).
+- Prepared, but have **not yet flashed**, a corrected BOOT candidate using the
+  verified UFS10 kernel and the same USERDATA root, adding
+  `rootrw=1 cs_enforcement_disable=1 unentitled_ios_sim_launch=1
+  ignition_level=1 launchd_unsecure_cache=1 wdt=-1 -wdt_no_pmu
+  wdt_test=no_user_checkin`. Image:
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-boot-greatlte-iosroot-csfix.img`,
+  18,321,424 bytes, SHA-256
+  `deca1dfae54678377b63166176f766aeb1caa2e4810a620b08b7c7ce8042390e`;
+  packer confirms it fits the 40 MiB BOOT partition. At this check `adb
+  devices -l` shows no attached device, so no BOOT write or reboot was
+  attempted. USERDATA and all protected partitions remain unchanged.
