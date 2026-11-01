@@ -651,3 +651,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   messages for other boards and leaving touch/framebuffer diagnostics enabled.
   Patch application to the local reconstructed source succeeds; CI and a
   cleaner-screen device trial are pending.
+- CI run `41356483458` succeeded on commit `7a4f61d`; the GreatLTE kernel
+  artifact SHA-256 is `09eed1fe410e7c041e850721383484239faf253ecbd305f572fde3070fa2b735`.
+  Built a quiet-console BOOT candidate with the proven root/native-framebuffer
+  arguments and `greatltetouch=1`: 18,323,472 bytes, SHA-256
+  `62a7c0bfa856fef56dbfe8ff62f3ecdd960352c260e8a17c95b768b749b0545c`.
+  TWRP ADB again identified `greatlte`, `/dev/block/sda7` as 41,943,040 bytes,
+  and local stock BOOT/EFS backups were present. Flashed only BOOT p7; readback
+  of the first 18,323,472 bytes matches the candidate hash exactly, then
+  rebooted. The user reports the lock-screen clock has advanced to 4:15. The
+  cleaner-screen, post-boot, and Y661 physical-touch results are pending. This
+  remains a boot/UI milestone, not confirmation of a fully functional port.
