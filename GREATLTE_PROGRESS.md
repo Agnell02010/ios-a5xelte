@@ -673,6 +673,11 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   full device reboot on every minute boundary: there is only one Apple-logo
   frame at the start of the sequence and no later boot logo, while the same
   lock-screen time persists in the final screenshot. Touch remains unproven.
+  The built XNU `priv.h` maps sandbox privilege 1002 to
+  `PRIV_GLOBAL_PROC_INFO` (querying processes owned by other users); the denial
+  is evidence of a blocked process-info request, but does not establish that
+  it caused the PosterBoard crash, so do not grant it broadly without a call
+  trace.
   Source inspection of the built `sweet_sample.c` confirms it starts after
   90 seconds and then prints SpringBoard/backboardd thread dumps every 120
   seconds (up to 40 samples), which explains the periodic large text. From
