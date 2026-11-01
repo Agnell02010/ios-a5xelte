@@ -511,3 +511,17 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   Rebooted to retry iOS startup. ADB disconnected as expected on leaving TWRP;
   the post-fix launchd/UI result is pending a screen photo. No partition other
   than BOOT was written in this step.
+- **2026-11-01 post-fix userland photos** (`IMG_20261101_203654834.jpg`,
+  `IMG_20261101_203710208.jpg`, `IMG_20261101_203720859.jpg`,
+  `IMG_20261101_203749176.jpg`, `IMG_20261101_203755184.jpg`,
+  `IMG_20261101_203838573.jpg`): after the BOOT fix, the screen advances past
+  the previous `CS_KILLED` launchd failure and prints a changing stream of
+  daemon/XPC launches, including `xpcproxy`, `bluetoothd`, `fairplayd.H2`,
+  `homed`, `ManagedSettingsAgent`, `pfd`, and Siri embedded speech. Repeated
+  `exec xpcproxy` entries are process-launch diagnostics and are consistent
+  with launchd starting XPC services; they are not by themselves a crash
+  message. SWEET AKS stub calls mostly return `0x0`; one `rapportd` sandbox
+  privilege denial and a flowswitch/utun notice are visible. The photographed
+  log has not yet shown `backboardd`/`SpringBoard` or the iOS UI, so userland
+  startup is progressing but the Hello screen remains unverified. The Android
+  boot logo is still the framebuffer background. No new partition writes.
