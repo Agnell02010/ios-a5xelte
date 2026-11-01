@@ -622,3 +622,15 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   context. Local application now places the declaration at line 51 and the
   call inside the UFS init path at line 1224. A further CI build is required;
   no touch image has been produced or flashed.
+- CI run `41353671634` succeeded on commit `feb938f` (15m47s). Its
+  `kernel.development.greatlte` artifact SHA-256 is
+  `e61d4cba0f6c5a4aa88189eef4633b85857dcc2f9a7a095b72e264627a7382bf`.
+  Prepared `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-boot-greatlte-touch-41353671634.img`
+  (18,323,472 bytes, SHA-256
+  `c6d0b83719379281bf1e8f02ac4a7a2b202324df27d2bde3780ab0dec6284081`),
+  with the previously successful iOS root/signing and native-framebuffer
+  args plus `greatltetouch=1`. Strings confirm the Y661 diagnostics and boot
+  argument are in the candidate. TWRP identified `greatlte`; BOOT is
+  `/dev/block/sda7`, 41,943,040 bytes. Flashed only BOOT p7. A full-partition
+  readback's first 18,323,472 bytes hash to the candidate SHA-256 exactly.
+  Rebooted; the post-flash screen and physical touch result are pending.
