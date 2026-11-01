@@ -418,3 +418,23 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   readback SHA-256. Rebooted to run the probe; ADB is disconnected after
   leaving TWRP. The screen result is pending. USERDATA and other partitions
   remain untouched.
+- **2026-11-01 photo `IMG_20261101_164606420.jpg` (SHA-256
+  `7accb977d46d26fa2cada1420e8a0b7914cb9617f27894439fb97c74f9875bd9`):**
+  the 0228 read-only probe now succeeds. UFS returns a real CHECK CONDITION
+  on the device W-LUN (`sense key 2`, ASC/ASCQ `04/02`, initialization
+  required); START STOP UNIT (ACTIVE) returns 0, LUN 0 TEST UNIT READY returns
+  0, READ(10) LBA 1 returns `EFI PART`, and the kernel reads the 128-entry GPT
+  and lists all 23 partitions, including USERDATA (52,744 MiB). `probe done
+  (0)` confirms the diagnostic path's read-only storage test. The kernel then
+  continues through BSD/Skywalk startup and waits for an Apple_HFS root, as
+  expected because this boot has no iOS root image or `rd=ufsroot0`. The photo
+  also shows a second UFS initialization starting later; it is cut off before
+  its result, so that path still needs confirmation. No UFS writes have been
+  made and USERDATA remains untouched.
+- The S8 code was the right Exynos 8895 reference for the UFS transport: its
+  storage path uses CT=1, reuses the S-Boot host/link and wakes the device W-LUN.
+  This first Note 8 GPT read verifies those adapted transport changes on this
+  device. Next: confirm the regular root-device initialization, prepare an
+  iPhone X iOS 16.7.16 HFSX root from an owner-provided IPSW, and only then
+  request explicit confirmation before any write to USERDATA. Touch, buttons,
+  and iOS userland remain separate unverified milestones.
