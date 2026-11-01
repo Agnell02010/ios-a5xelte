@@ -17,3 +17,15 @@ diff --git a/bsd/dev/greatlte_ufs.c b/bsd/dev/greatlte_ufs.c
  	return 0;
  }
  
+diff --git a/bsd/dev/sweet_sample.c b/bsd/dev/sweet_sample.c
+--- a/bsd/dev/sweet_sample.c
++++ b/bsd/dev/sweet_sample.c
+@@ -1,4 +1,4 @@
+-#if defined(ARM64_BOARD_CONFIG_SWEET) || defined(ARM64_BOARD_CONFIG_HEROLTE)
++#if defined(ARM64_BOARD_CONFIG_SWEET) || defined(ARM64_BOARD_CONFIG_HEROLTE) || defined(ARM64_BOARD_CONFIG_GREATLTE)
+ /*
+  * SWEET process sampler: where is a daemon stuck?
+  *
+@@ -91 +91 @@
+-#endif /* ARM64_BOARD_CONFIG_SWEET || ARM64_BOARD_CONFIG_HEROLTE */
++#endif /* ARM64_BOARD_CONFIG_SWEET || ARM64_BOARD_CONFIG_HEROLTE || ARM64_BOARD_CONFIG_GREATLTE */

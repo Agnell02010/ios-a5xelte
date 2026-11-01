@@ -552,3 +552,9 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   backtraces after 90 seconds and every 120 seconds. Patch applies to the
   locally reconstructed 0222–0228 GreatLTE UFS source; CI build/device trial
   still pending. USERDATA was read only during these diagnostics.
+- CI run `41346553548` for 0229 failed at link: the sampler source patch
+  `0088` intentionally wrapped `sweet_sample.c` in a SWEET-only guard, and
+  0207 extended that guard only to HEROLTE. `greatlte_ufs.o` therefore had an
+  unresolved `sweet_sample_start` reference. Updated 0229 to extend the guard
+  to GREATLTE as well; the patch applies after 0207 in a local source
+  reconstruction. No device image was produced or flashed from the failed run.
