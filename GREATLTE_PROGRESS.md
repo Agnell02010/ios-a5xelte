@@ -328,6 +328,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   snapshots the slot-0 UTRD and UCD before clearing the wedged slot, and logs
   the command/response UPIU, UTRL base/run registers, Nexus register and UIC
   error registers. `git apply --check` succeeds after patches 0222–0225.
-  No kernel build or device test has run with 0226 yet. Next: build it in CI,
-  verify 0226 was applied, then use a read-only `ufsprobe=1` BOOT trial. Do
-  not mount UFS or enable `ufsrw=1` until TUR and GPT reads succeed.
+- Commit `a1f40f4` pushed to `greatlte`; CI run `41314001168` succeeded in
+  17m39s. Its log explicitly applies 0226; the unrelated donor patches
+  `iobuffermemd_monterey`, `skywalk_sonoma`, `syntax_checker_sonoma` and
+  `TrustCache` are reported as skipped, as before. Kernel SHA-256:
+  `568e039c7ff218154981e9a13345e80c55cbf8a609508b49f986ebafa23e01f3`.
+- Built `xnu-boot-ufs8.img` from the verified stock BOOT backup and that
+  kernel. Its payload command line is `debug=0xc serial=3 cpus=1 keepsyms=1
+  startup_debug=1 ufsprobe=1 -enable_kprintf_spam -noprogress`; it contains
+  neither `rd=ufsroot0` nor `ufsrw=1`. Image size 18,317,328 bytes; SHA-256
+  `8920da5d957b9efe579edc5951f51b4a881b1f3625f43ab6c0865ff96193c098`.
+- Flashed that image to BOOT `/dev/block/sda7` from TWRP only; device identity,
+  by-name path and 81920-sector size were checked. Readback SHA-256 matched.
+  Rebooted to run the probe. ADB is now disconnected, which is expected for
+  this XNU path; physical screen result is pending. USERDATA and all other
+  partitions remain untouched. Next: read the new screen output, then use the
+  UTRD/UCD evidence to choose a driver fix. Do not mount UFS or enable
+  `ufsrw=1` until TUR and GPT reads succeed.
