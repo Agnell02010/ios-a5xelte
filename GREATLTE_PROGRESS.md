@@ -289,3 +289,16 @@ storage (Exynos 8895 UFS) and then the iOS root image.
 - No new kernel has been built or flashed yet. Device storage remains
   untouched; the next image must be read-only (`ufsprobe=1`) and verified in
   CI to include 0225 before BOOT is written.
+- Commit `45f1e4f` repaired the patch; CI run `41296783791` completed
+  successfully. Its log explicitly says it applied
+  `0225-greatlte-ufs-phy-init.patch`, and does not report that patch as
+  skipped. The rebuilt kernel contains the PHY isolation marker and the
+  UFS-PHY initialization diagnostics; kernel sha256 is
+  `421080377ccb033db0c102665e35b0b3bd58fedb8b92cbd64fc66a45140e8ba2`.
+- Packaged a new candidate `xnu-boot-ufs7.img` (18,317,328 bytes, sha256
+  `efe44c907d8119d2511c8ca6bb00379188b8001477d30981e696a6f2ab3fd33b`).
+  Its embedded command line includes `ufsprobe=1` and contains neither
+  `rd=ufsroot0` nor `ufsrw=1`; the image has not been flashed.
+- At the latest check `adb devices` showed no connected device. The
+  diagnostic image is ready, but a BOOT-only flash/readback and physical UFS
+  result remain pending. USERDATA and all other partitions remain untouched.
