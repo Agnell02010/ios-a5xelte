@@ -673,5 +673,17 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   full device reboot on every minute boundary: there is only one Apple-logo
   frame at the start of the sequence and no later boot logo, while the same
   lock-screen time persists in the final screenshot. Touch remains unproven.
-  Next investigate the PosterBoard exit and denied privilege before changing
-  the touch driver; the framebuffer counter alone is not a UI frame-rate test.
+  Source inspection of the built `sweet_sample.c` confirms it starts after
+  90 seconds and then prints SpringBoard/backboardd thread dumps every 120
+  seconds (up to 40 samples), which explains the periodic large text. From
+  TWRP, read the final 4,198,400 bytes of USERDATA p23 at offset
+  55,302,922,240; the region is zero-filled and has no `SWEETLOG` header, so
+  there is no persistent SWEET console log to decode. Prepared a BOOT image
+  from the same successful kernel with boot arg `sweetsample=-` to suppress
+  only periodic thread dumps while retaining crash diagnostics and Y661 touch
+  probing. Flashed only BOOT p7 (`/dev/block/sda7`) from TWRP and verified the
+  readback prefix matches image SHA-256
+  `1905667534fd081bf21967276e0850b082279bf9a357c8848be242b8c9573087`
+  (18,323,472 bytes); rebooted. The no-sampler boot result and PosterBoard
+  exit cause remain pending. Touch is still unproven; the framebuffer counter
+  alone is not a UI frame-rate test.
