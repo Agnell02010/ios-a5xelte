@@ -597,3 +597,16 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   controller firmware or NVM. The patch applies to the source tree from the
   successful sampler build. CI compilation and physical touch interaction are
   still pending.
+
+- **2026-11-01 additional boot photos** (`IMG_20261101_220219072.jpg`,
+  `IMG_20261101_220234814.jpg`, `IMG_20261101_220300999.jpg`,
+  `IMG_20261101_220347419.jpg`, `IMG_20261101_220914649.jpg`): repeated
+  lock-screen photos confirm that the iOS lock screen stayed visible across
+  several minutes. The later console frame contains the GreatLTE sampler's
+  thread listings for SpringBoard and backboardd, confirming that the sampler
+  started; it does not show a clear panic or reboot. The framebuffer sampler
+  still reports 1 frame / 5.2 seconds (~0.1 fps), and the photo shows repeated
+  `assetsd` activity/crash diagnostics. No touch interaction is demonstrated.
+  This confirms a persistent UI boot milestone, not a usable/full-speed iOS
+  port. CI run `41351076498` for the Y661 touch patch was still building when
+  these photos were reviewed; no resulting image has been installed.
