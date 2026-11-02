@@ -1087,4 +1087,7 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `backup/greatlte/BOOT-before-touch-delay-20261102.img` (SHA-256
   `3b06a23aacc1cd974a5fc5018a17fc0a7f21cae076e1f9b47180497bb8df63c7`).
   Wrote only BOOT, verified the candidate's readback hash, and rebooted. The
-  stage/status and physical touch result are pending.
+  user reports that pressing the screen now draws visible text at the touched
+  location, confirming that XNU receives touch events after the delay change.
+  The exact controller status line and swipe-to-unlock behavior have not yet
+  been confirmed.
