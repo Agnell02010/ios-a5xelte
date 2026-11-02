@@ -1,0 +1,95 @@
+--- a/bsd/dev/greatlte_touch.c
++++ b/bsd/dev/greatlte_touch.c
+@@ -22,5 +22,6 @@
+ 
+ #define GREAT_TS_HSI2C_PA       0x108e0000u
++#define GREAT_TS_SPEEDY_PA       0x15b50000u
+ #define GREAT_TS_PERIC1_CMU_PA  0x10800000u
+ #define GREAT_TS_PERIC1_SYS_PA  0x10820000u
+ #define GREAT_TS_PERIC1_GPIO_PA 0x10980000u
+@@ -38,6 +39,8 @@
+ static vm_offset_t great_ts_i2c;
+ static vm_offset_t great_ts_alive;
+ static vm_offset_t great_ts_cmu;
++static vm_offset_t great_ts_speedy;
+ static vm_offset_t great_ts_sysreg;
+ static vm_offset_t great_ts_peric_gpio;
+ static int great_ts_sleep;
++static void great_ts_wait(unsigned ms);
+@@ -59,6 +61,53 @@
+ 	__asm__ volatile("dsb osh" ::: "memory");
+ }
+ 
++/* S2MPS17 is reached through Exynos SPEEDY, slave 1.  The Samsung Note8
++ * device tree names LDO34 (1.85 V) tsp_io and LDO35 (3.3 V) tsp_avdd.
++ * The stock Y661 driver enables IO, waits 1 ms, then enables AVDD. */
++static int
++great_ts_speedy(unsigned reg, bool write, uint8_t val)
++{
++	vm_offset_t b = great_ts_speedy;
++	const uint32_t cmd = (1u << 19) | (write ? (1u << 20) : 0) |
++	    (1u << 15) | ((reg & 0xffu) << 7);
++
++	great_ts_write(b, 0x004, 1u << 31);
++	delay(10);
++	great_ts_write(b, 0x004, 0x101u);
++	great_ts_write(b, 0x00c, write ? 0x80300011u : 0x80070301u);
++	great_ts_write(b, 0x010, 0xffffffffu);
++	great_ts_write(b, 0x008, cmd);
++	if (write) {
++		great_ts_write(b, 0x034, val);
++	}
++	for (unsigned us = 0; us < 10000u; us++) {
++		if (great_ts_read(b, 0x010) & 1u) {
++			great_ts_write(b, 0x010, 0xffffffffu);
++			return write ? 0 : (int)(great_ts_read(b, 0x038) & 0xffu);
++		}
++		delay(1);
++	}
++	return -1;
++}
++
++static bool
++great_ts_power_on(void)
++{
++	/* LDO34: 0xc0 enable + (1.85 V - 0.70 V) / 25 mV = 0xee.
++	 * LDO35: 0xc0 enable + (3.30 V - 1.80 V) / 25 mV = 0xfc. */
++	int before34 = great_ts_speedy(0x5f, false, 0);
++	int before35 = great_ts_speedy(0x60, false, 0);
++	int r34 = great_ts_speedy(0x5f, true, 0xee);
++	great_ts_wait(1);
++	int r35 = great_ts_speedy(0x60, true, 0xfc);
++	great_ts_wait(20);
++	int after34 = great_ts_speedy(0x5f, false, 0);
++	int after35 = great_ts_speedy(0x60, false, 0);
++	printf("GREATLTE TOUCH: PMIC L34 %x>%x rc=%d L35 %x>%x rc=%d\n",
++	    before34, after34, r34, before35, after35, r35);
++	return r34 == 0 && r35 == 0 && after34 == 0xee && after35 == 0xfc;
++}
++
+ /* Enable Exynos8895 USI9 as HSI2C before touching its shared aperture. */
+ static bool
+ great_ts_hw_init(void)
+@@ -343,9 +393,11 @@
+ 	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
+ 	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
+ 	great_ts_cmu = ml_io_map(GREAT_TS_PERIC1_CMU_PA, 0x3000);
++	great_ts_speedy = ml_io_map(GREAT_TS_SPEEDY_PA, 0x1000);
+ 	great_ts_sysreg = ml_io_map(GREAT_TS_PERIC1_SYS_PA, 0x2000);
+ 	great_ts_peric_gpio = ml_io_map(GREAT_TS_PERIC1_GPIO_PA, 0x1000);
+ 	if (!great_ts_i2c || !great_ts_alive || !great_ts_cmu ||
++	    !great_ts_speedy ||
+ 	    !great_ts_sysreg || !great_ts_peric_gpio) {
+ 		great_ts_stage = 2;
+ 		printf("GREATLTE TOUCH: MMIO map failed\n");
+@@ -356,5 +409,10 @@
+ 	}
+ 	great_ts_stage = 3;
++	if (!great_ts_power_on()) {
++		great_ts_stage = 8;
++		printf("GREATLTE TOUCH: PMIC power init failed\n");
++		return;
++	}
+ 	if (!great_ts_hw_init()) {
+ 		great_ts_stage = 9;
+ 		printf("GREATLTE TOUCH: USI9 clock/mode/pin init failed\n");
