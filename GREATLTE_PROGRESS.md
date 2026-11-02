@@ -764,3 +764,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `sweetfb_native=1` (patch `0061`). Corrected GreatLTE Y scaling to 2400;
   this is a necessary fix but is not yet device-verified and may not be the
   only cause. A fresh XNU build and touch trial are required.
+- **2026-11-02 recovery-side readback after touch photos:** ADB currently
+  detects `greatlte` in TWRP; `getevent -lp` again lists `sec_touchscreen`
+  with 0..4095 X/Y ranges. Battery is 65% and charging. The `/sys/fs/pstore`
+  directory is empty, so it contains no XNU log from the previous boot. BOOT
+  p7's first 18,323,472 bytes still hash to
+  `f2054cb29509f8ed5d95af12b9225febcd369330f9bb24a226a67a316a425286`, the
+  corrected-ID image with the pre-fix Y scale; no further partition writes
+  were made. This confirms ADB can inspect recovery, but the iOS boot does not
+  currently expose an ADB service or persistent pstore log.
