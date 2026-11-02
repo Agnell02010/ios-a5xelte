@@ -709,3 +709,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   phone was in TWRP (`greatlte`), battery 53% and charging; BOOT p7 still
   matched the no-sampler image hash, and `/sys/fs/pstore` had no records. The
   reason it was back in TWRP is unknown from the photos.
+- **2026-11-02 TWRP touch check:** while the user tapped the screen, a brief
+  read-only `getevent -lt /dev/input/event0` capture from ADB showed
+  `sec_touchscreen` reporting `BTN_TOUCH DOWN`, `BTN_TOOL_FINGER DOWN`,
+  `ABS_MT_TRACKING_ID`, and X/Y coordinates. The touchscreen therefore
+  generates input under TWRP; tapping an empty area need not visibly change
+  its screen. This does not prove the XNU driver is reading the controller.
+  Comparing the port against the public Samsung GreatLTE Y661 driver
+  (`exynos-linux-stable/greatlte`, `tw90-android`) found that its
+  `SEC_TS_READ_ID` command is `0x52`, while patch `0230` had used `0x22` and
+  read five bytes. Corrected the diagnostic read to command `0x52`, length 3,
+  matching the Samsung driver's `sec_ts_read_information()` implementation.
+  This fixes the ID probe only; the next XNU boot still needs to show
+  `GREATLTE TOUCH` diagnostics and a visible touch response before the port's
+  touch path can be considered working. The GreatLTE DTS maps touch rails to
+  S2MPS17 LDO34 (`tsp_io`, 1.85 V) and LDO35 (`tsp_avdd`, 3.3 V), both marked
+  `regulator-boot-on`; no PMIC writes were made.

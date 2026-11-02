@@ -35,7 +35,7 @@ new file mode 100644
 + * Board wiring and command/event format follow the GreatLTE Samsung device
 + * tree and its sec_ts_y661 driver. The Exynos8895 HSI2C register block and
 + * 8-byte coordinate event layout match the S8's S6SY761 path; this file
-+ * reads the Y661 device ID through its own 0x22 command and never updates
++ * reads the Y661 device ID through the Samsung READ_ID (0x52) command and never updates
 + * controller firmware or NVM.
 + */
 +#if defined(ARM64_BOARD_CONFIG_GREATLTE)
@@ -278,7 +278,7 @@ new file mode 100644
 +void
 +greatlte_touch_start(void)
 +{
-+	uint8_t status = 0, id[5] = {0}, functions[2] = {0};
++	uint8_t status = 0, id[3] = {0}, functions[2] = {0};
 +	uint8_t set_func[3] = { GREAT_TS_TOUCH_FUNC, 0, 0 };
 +	uint8_t sense = GREAT_TS_SENSE_ON;
 +	thread_t thread;
@@ -303,9 +303,9 @@ new file mode 100644
 +		printf("GREATLTE TOUCH: controller not in app mode (status %#x)\n", status);
 +		return;
 +	}
-+	if (great_ts_cmd_read(0x22u, id, sizeof(id))) {
-+		printf("GREATLTE TOUCH: Y661 id %02x %02x %02x %02x %02x\n",
-+		    id[0], id[1], id[2], id[3], id[4]);
++	if (great_ts_cmd_read(0x52u, id, 3u)) {
++		printf("GREATLTE TOUCH: Y661 id %02x %02x %02x\n",
++		    id[0], id[1], id[2]);
 +	} else {
 +		printf("GREATLTE TOUCH: device id read failed\n");
 +	}
