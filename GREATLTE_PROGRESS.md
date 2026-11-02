@@ -923,3 +923,17 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `candidate only; no device write`. Device currently not detected via ADB;
   trial requires TWRP and should update only BOOT, preserving the stable
   pre-USI9 BOOT copy for immediate rollback.
+- **2026-11-02 deferred touch BOOT trial installed:** TWRP ADB identified
+  `greatlte`, Galaxy Note8; BOOT `/dev/block/sda7` is 41,943,040 bytes;
+  battery 100%, charging. The stock BOOT/EFS backup hashes matched the log.
+  Saved the full currently installed stable BOOT before writing; it matches
+  `boot-pre-usi9-20261102.img` exactly (SHA256
+  `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`). Wrote
+  only candidate `xnu-boot-greatlte-touch-deferred-41425380164.img` to BOOT.
+  Its first 18,323,472 bytes were read back and match candidate SHA256
+  `6bcf0cf022b86859a4a8cfd63364da5d46b20a17a2fb0f1511f6afafb38abd6c`.
+  The full 40 MiB partition hash differs as expected because the candidate is
+  smaller than the partition and the unwritten tail retains previous bytes.
+  Removed the temporary image from TWRP `/tmp` and rebooted. Confirm root/HFS
+  and iOS startup first, then inspect the deferred `GREATLTE TOUCH` lines and
+  swipe. Keep the full stable BOOT copy ready for rollback.
