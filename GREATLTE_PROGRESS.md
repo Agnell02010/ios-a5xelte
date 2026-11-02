@@ -912,3 +912,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   a touch-probe stall from root mounting; it does not establish that the
   register values or Y661 transaction are correct. Build and trial are
   pending.
+- **2026-11-02 deferred touch initialization build:** CI run
+  `41425380164` succeeded for commit `78628154d6c468a357f7d174efcfffd22c86ad11`;
+  Cortex-A53 compatibility check passed. Kernel SHA256
+  `06daf957ced5b227363d1b22769d6f3dfdcd0ab478c3c7e7a280f9b4b083372d`.
+  Candidate `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-kernel-41425380164/xnu-boot-greatlte-touch-deferred-41425380164.img`
+  is 18,323,472 bytes, SHA256
+  `6bcf0cf022b86859a4a8cfd63364da5d46b20a17a2fb0f1511f6afafb38abd6c`.
+  Packager confirmed the known stock BOOT hash and reported
+  `candidate only; no device write`. Device currently not detected via ADB;
+  trial requires TWRP and should update only BOOT, preserving the stable
+  pre-USI9 BOOT copy for immediate rollback.
