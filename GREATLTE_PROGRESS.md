@@ -1112,7 +1112,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   patch 0230's original ordering matching the Samsung driver. Removed that
   reversal from 0231 and verified the corrected patch applies to the exact
   post-ID-fix source from CI run `41403831939`. The installed image still
-  contains the reversed mapping; a corrected CI build and BOOT-only trial
-  are pending. The home-screen response and the reported low frame rate are
-  separate observations; the framebuffer copy counter alone does not measure
-  rendered UI FPS.
+  contained the reversed mapping. CI run `41497481480` built the corrected
+  source successfully; kernel SHA-256
+  `dd4675498c69134b9af37a80aa3c6ee73bcda54c0f5acc5f485573b8158fe8be`.
+  The build-tree source confirms X from byte 3's high nibble, Y from its low
+  nibble, and a 2400-pixel Y scale. Packed with the console-hidden argument
+  into an 18,323,472-byte candidate (SHA-256
+  `ec0b6dde4a40959746e30556a40d19c45223664abbfdc12c19d539769e90a420`).
+  TWRP confirmed `greatlte`, 100% battery, and BOOT `/dev/block/sda7`;
+  saved the prior full BOOT as
+  `backup/greatlte/BOOT-before-coordinate-fix-20261102.img` (SHA-256
+  `8345f0a91a1188366b559e0d076df84c1b49ee372c86fb52a3f24e0e76dc5d80`).
+  Wrote only BOOT, verified candidate readback, and rebooted. Userland touch
+  behavior after the coordinate correction is pending. The reported low
+  frame rate is a separate issue; the framebuffer copy counter alone does
+  not measure rendered UI FPS.
