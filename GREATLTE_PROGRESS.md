@@ -1076,5 +1076,15 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   initialization. This is a bounded, code-derived timing hypothesis; S8 has
   a different touch controller, and the change is not yet device-verified.
   The edited patch passes `patch --dry-run` against the local reconstructed
-  GreatLTE source tree. No CI build or device write has been made for this
-  change yet.
+  GreatLTE source tree. CI run `41491523029` built commit `c20ae77`
+  successfully; its kernel SHA-256 is
+  `2990fa7811993f73d2f4b9db8ce016dc9d382fbe64966b142bead873f6cdec56`.
+  The packaged candidate SHA-256 is
+  `983c1cd4026d59c9247da09577e27d2d2fe8ed8385c9c1dbd3961df710246336`
+  (18,323,472 bytes) and includes the previously tested iOS boot arguments.
+  TWRP confirmed `greatlte`, 100% battery, and BOOT `/dev/block/sda7`
+  (41,943,040 bytes). Saved the complete pre-trial BOOT as
+  `backup/greatlte/BOOT-before-touch-delay-20261102.img` (SHA-256
+  `3b06a23aacc1cd974a5fc5018a17fc0a7f21cae076e1f9b47180497bb8df63c7`).
+  Wrote only BOOT, verified the candidate's readback hash, and rebooted. The
+  stage/status and physical touch result are pending.
