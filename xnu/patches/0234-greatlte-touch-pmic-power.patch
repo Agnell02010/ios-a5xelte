@@ -76,7 +76,7 @@ diff --git a/bsd/dev/greatlte_touch.c b/bsd/dev/greatlte_touch.c
  
  /* Enable Exynos8895 USI9 as HSI2C before touching its shared aperture. */
  static bool
-@@ -341,15 +392,22 @@
+@@ -341,15 +392,24 @@
  	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
  	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
  	great_ts_cmu = ml_io_map(GREAT_TS_PERIC1_CMU_PA, 0x3000);
@@ -96,6 +96,8 @@ diff --git a/bsd/dev/greatlte_touch.c b/bsd/dev/greatlte_touch.c
 +		printf("GREATLTE TOUCH: PMIC power init failed\n");
 +		return;
 +	}
++	/* S8 touch_probe waits 200 ms after enabling the shared touch rails. */
++	great_ts_wait(200);
  	if (!great_ts_hw_init()) {
  		great_ts_stage = 9;
  		printf("GREATLTE TOUCH: USI9 clock/mode/pin init failed\n");

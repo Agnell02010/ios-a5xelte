@@ -1049,19 +1049,32 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `sec_ts_firmware_update_on_probe()` detects `0x10` and updates from the
   DTS firmware path `tsp_sec/y661_great.fw`. The XNU port currently performs
   no firmware update, so it correctly stops before issuing touch commands.
-  Searched the local project, downloaded photos, and available local files;
-  no `y661_great.fw`/`sec_hero.fw` image is present. Do not send speculative
+  At this point, the controller's actual firmware state was not yet known.
+  The local file search below only establishes that the firmware file was
+  not found in the inspected Android partitions; it does not establish that
+  firmware is absent from the controller. Do not send speculative
   firmware-flash commands or treat `SENSE_ON` as a substitute for firmware.
-  Next step is to obtain the exact Y661 firmware from the owner's stock
-  Samsung firmware/system image or a read-only TWRP extraction, then port the
-  vendor update protocol with bounded retries and readback checks. The new
-  photos show stage 5, but touch still does not work and no further device
-  writes have been made since the verified BOOT trial.
 - **Read-only firmware search in TWRP:** after the photo review, ADB again
   identified `greatlte` / Galaxy Note8 in recovery. Mounted SYSTEM p15 and
   VENDOR p10 with `ro,noload`, searched both complete trees for `y661_great.fw`,
   `sec_hero.fw`, and `sec_ts` firmware, and found none. Both filesystems were
-  unmounted afterward; no partition was written. The exact controller
-  firmware therefore still needs to be supplied from a stock ROM/package or
-  another owner-provided source before a firmware-update implementation can
-  be tested.
+  unmounted afterward; no partition was written. This search is not evidence
+  that the Y661 itself lacks firmware.
+- **Correction from later TWRP/Linux evidence:** the Samsung Y661 driver logs
+  the controller in `APP_MODE (0x20)` with ID `53 45 B6 61 00` and valid IC
+  versions (image `9.30.1.26`, core `9.30.2.0`, config `9.30.1.4`). It loads
+  the `y661_great.fw` reference image, compares versions, and skips updating
+  because the IC already matches. Therefore the earlier inference that XNU
+  sees boot mode because controller firmware is missing was incorrect: XNU
+  sees `0x10`, but Linux sees the same controller running the installed
+  application. No firmware update should be attempted without new evidence.
+- **2026-11-02 power-up timing trial prepared:** GreatLTE DTS declares LDO34
+  and LDO35 boot-on, so Linux can proceed without powering them up itself.
+  XNU explicitly enables both rails; its PMIC helper waited 20 ms before
+  setting up HSI2C, while the S8 touch probe waits 200 ms after enabling its
+  touch rails. Added a 200 ms post-rail delay to patch 0234 before HSI2C
+  initialization. This is a bounded, code-derived timing hypothesis; S8 has
+  a different touch controller, and the change is not yet device-verified.
+  The edited patch passes `patch --dry-run` against the local reconstructed
+  GreatLTE source tree. No CI build or device write has been made for this
+  change yet.
