@@ -844,3 +844,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   before building another trial. The screenshot also shows unrelated
   SpringBoard/PosterBoard and sandbox diagnostics; those do not explain the
   touch probe failure.
+- **2026-11-02 USI9 initialization fix prepared:** upstream Exynos8895 Linux
+  source documents USI v1 as a muxed peripheral: set `SW_CONF` to I2C0 (value
+  1, mask `0xf`) at PERIC1 SYSREG `0x10820000 + 0x101c`; enable the USI09
+  peripheral/protocol gates at CMU PERIC1 `0x10800000 + 0x20ac/+0x20b0`
+  (bit 21); and select HSI2C function 2 on GPE3 pins 0/1 at PERIC1 pinctrl
+  `0x10980000 + 0x120`, with no pull. The previous XNU driver only mapped
+  `0x108e0000` and programmed the HSI2C block, leaving these prerequisites
+  unconfigured. Patch `0232-greatlte-usi9-clock-mode.patch` now sets and
+  read-verifies the mode, gates and pins before resetting HSI2C. The register
+  addresses and bit definitions are source-derived, not yet confirmed by a
+  successful bus read on this phone. Build and device trial are pending.

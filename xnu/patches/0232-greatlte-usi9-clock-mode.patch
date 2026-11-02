@@ -1,0 +1,82 @@
+--- a/bsd/dev/greatlte_touch.c
++++ b/bsd/dev/greatlte_touch.c
+@@ -23,6 +23,9 @@
+ extern void sweet_hid_touch(int finger, int down, int x, int y);
+ 
+ #define GREAT_TS_HSI2C_PA       0x108e0000u
++#define GREAT_TS_PERIC1_CMU_PA  0x10800000u
++#define GREAT_TS_PERIC1_SYS_PA  0x10820000u
++#define GREAT_TS_PERIC1_GPIO_PA 0x10980000u
+ #define GREAT_TS_ALIVE_PA       0x164b0000u
+ #define GREAT_TS_GPA1_DAT       0x44u
+ #define GREAT_TS_ADDR           0x48u
+@@ -36,6 +39,9 @@
+ 
+ static vm_offset_t great_ts_i2c;
+ static vm_offset_t great_ts_alive;
++static vm_offset_t great_ts_cmu;
++static vm_offset_t great_ts_sysreg;
++static vm_offset_t great_ts_peric_gpio;
+ static int great_ts_sleep;
+ static volatile unsigned great_ts_stage;
+ static volatile unsigned great_ts_last_status;
+@@ -59,6 +65,36 @@
+ 	__asm__ volatile("dsb osh" ::: "memory");
+ }
+ 
++/* Enable Exynos8895 USI9 as HSI2C before touching its shared aperture. */
++static bool
++great_ts_hw_init(void)
++{
++	const uint32_t gate = 1u << 21;
++	uint32_t mode = great_ts_read(great_ts_sysreg, 0x101c);
++	great_ts_write(great_ts_sysreg, 0x101c, (mode & ~0xfu) | 1u);
++	mode = great_ts_read(great_ts_sysreg, 0x101c);
++
++	/* USI9 APB and protocol clocks; preserve all other CMU users. */
++	uint32_t pclk = great_ts_read(great_ts_cmu, 0x20ac);
++	uint32_t sclk = great_ts_read(great_ts_cmu, 0x20b0);
++	great_ts_write(great_ts_cmu, 0x20ac, pclk | gate);
++	great_ts_write(great_ts_cmu, 0x20b0, sclk | gate);
++
++	/* GPE3 pins 0/1: HSI2C function 2, no pull, as in Linux DTS. */
++	uint32_t con = great_ts_read(great_ts_peric_gpio, 0x120);
++	uint32_t pud = great_ts_read(great_ts_peric_gpio, 0x128);
++	great_ts_write(great_ts_peric_gpio, 0x120, (con & ~0xffu) | 0x22u);
++	great_ts_write(great_ts_peric_gpio, 0x128, pud & ~0xffu);
++
++	uint32_t pclk_after = great_ts_read(great_ts_cmu, 0x20ac);
++	uint32_t sclk_after = great_ts_read(great_ts_cmu, 0x20b0);
++	uint32_t pincon_after = great_ts_read(great_ts_peric_gpio, 0x120);
++	printf("GREATLTE TOUCH: USI9 sysreg=%#x pclk=%#x sclk=%#x pincon=%#x\n",
++	    mode, pclk_after, sclk_after, pincon_after);
++	return (mode & 0xfu) == 1u && (pclk_after & gate) &&
++	    (sclk_after & gate) && (pincon_after & 0xffu) == 0x22u;
++}
++
+ /* Exynos8895 HSI2C register access for the Y661 touchscreen. */
+ static void
+ great_ts_i2c_reset(void)
+@@ -302,12 +338,21 @@
+ 	}
+ 	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
+ 	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
+-	if (!great_ts_i2c || !great_ts_alive) {
++	great_ts_cmu = ml_io_map(GREAT_TS_PERIC1_CMU_PA, 0x3000);
++	great_ts_sysreg = ml_io_map(GREAT_TS_PERIC1_SYS_PA, 0x2000);
++	great_ts_peric_gpio = ml_io_map(GREAT_TS_PERIC1_GPIO_PA, 0x1000);
++	if (!great_ts_i2c || !great_ts_alive || !great_ts_cmu ||
++	    !great_ts_sysreg || !great_ts_peric_gpio) {
+ 		great_ts_stage = 2;
+ 		printf("GREATLTE TOUCH: MMIO map failed\n");
+ 		return;
+ 	}
+ 	great_ts_stage = 3;
++	if (!great_ts_hw_init()) {
++		great_ts_stage = 9;
++		printf("GREATLTE TOUCH: USI9 clock/mode/pin init failed\n");
++		return;
++	}
+ 	great_ts_i2c_reset();
+ 	printf("GREATLTE TOUCH: probe start irq=%u hsi2c=%#x alive=%#x\n",
+ 	    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u),
