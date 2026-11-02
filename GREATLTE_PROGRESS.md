@@ -1104,3 +1104,15 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   user notes roughly 0.2 fps; the earlier counter measured framebuffer copies,
   not necessarily actual UI presentation rate. The clean-screen UI and
   gesture response remain pending.
+- **2026-11-02 touch coordinate follow-up:** the user reports that touch
+  diagnostics appear during boot, but taps do not act on the home screen.
+  Samsung's Y661 event struct declares `y_3_0` before `x_3_0`; on the
+  controller's little-endian ARM host, the low nibble of event byte 3 is Y
+  and the high nibble is X. Patch 0231 had reversed those nibbles despite
+  patch 0230's original ordering matching the Samsung driver. Removed that
+  reversal from 0231 and verified the corrected patch applies to the exact
+  post-ID-fix source from CI run `41403831939`. The installed image still
+  contains the reversed mapping; a corrected CI build and BOOT-only trial
+  are pending. The home-screen response and the reported low frame rate are
+  separate observations; the framebuffer copy counter alone does not measure
+  rendered UI FPS.

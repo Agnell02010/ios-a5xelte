@@ -176,17 +176,12 @@
  }
  
  static bool
-@@ -164,8 +171,8 @@
- 	if (id >= GREAT_TS_FINGERS) {
- 		return;
- 	}
--	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] >> 4);
--	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] & 0xfu);
-+	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] & 0xfu);
-+	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] >> 4);
- 	/* sweetfb_native=1 exposes a 1080x2400 touch coordinate space. */
- 	x = x * 1080u / 4096u;
- 	y = y * 2400u / 4096u;
+@@ -168 +175 @@
+-	/* iOS userland uses the donor's 1080x1920 HID coordinate space. */
++	/* sweetfb_native=1 exposes a 1080x2400 touch coordinate space. */
+@@ -170 +177 @@
+-	y = y * 1920u / 4096u;
++	y = y * 2400u / 4096u;
 @@ -197,18 +204,48 @@
  }
  
