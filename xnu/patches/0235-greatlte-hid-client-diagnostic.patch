@@ -1,7 +1,10 @@
 diff --git a/iokit/Kernel/arm/hid/SweetHID.cpp b/iokit/Kernel/arm/hid/SweetHID.cpp
 --- a/iokit/Kernel/arm/hid/SweetHID.cpp
 +++ b/iokit/Kernel/arm/hid/SweetHID.cpp
-@@ -560,4 +560,14 @@
+@@ -557,10 +557,20 @@
+ 	collection->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, any ? 1 : 0);
+ 	IOLockUnlock(fLock);
+ 
 -	if (was != down) {
 -		IOLog("SWEET HID: touch %d %s at %d,%d%s\n", finger, down ? "down" : "up", x, y,
 -		    fEdge[finger] ? " edge" : "");
@@ -20,3 +23,6 @@ diff --git a/iokit/Kernel/arm/hid/SweetHID.cpp b/iokit/Kernel/arm/hid/SweetHID.c
 +		    fEdge[finger] ? " edge" : "");
 +#endif
 +	}
+ 	dispatchEvent(collection);
+ 	collection->release();
+ }
