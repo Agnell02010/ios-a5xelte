@@ -725,3 +725,8 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   touch path can be considered working. The GreatLTE DTS maps touch rails to
   S2MPS17 LDO34 (`tsp_io`, 1.85 V) and LDO35 (`tsp_avdd`, 3.3 V), both marked
   `regulator-boot-on`; no PMIC writes were made.
+  Committed the source/evidence update as `96f70a8` and pushed it to the
+  dedicated branch `codex/greatlte-touch-id` on `Agnell02010/ios-a5xelte`.
+  The `xnu.yml` workflow dispatch was rejected because GitHub Actions is
+  disabled for that repository (`HTTP 422`); this revision has not been
+  compiled or installed. No phone partitions were written during this check.
