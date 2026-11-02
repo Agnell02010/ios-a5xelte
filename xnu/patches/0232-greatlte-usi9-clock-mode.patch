@@ -20,7 +20,7 @@
  static int great_ts_sleep;
  static volatile unsigned great_ts_stage;
  static volatile unsigned great_ts_last_status;
-@@ -59,6 +65,36 @@
+@@ -59,6 +65,39 @@
  	__asm__ volatile("dsb osh" ::: "memory");
  }
  
@@ -28,16 +28,19 @@
 +static bool
 +great_ts_hw_init(void)
 +{
-+	const uint32_t gate = 1u << 21;
++	const uint32_t gate = (1u << 21) | (1u << 20);
 +	uint32_t mode = great_ts_read(great_ts_sysreg, 0x101c);
-+	great_ts_write(great_ts_sysreg, 0x101c, (mode & ~0xfu) | 1u);
++	great_ts_write(great_ts_sysreg, 0x101c, (mode & ~0xfu) | 3u);
 +	mode = great_ts_read(great_ts_sysreg, 0x101c);
 +
-+	/* USI9 APB and protocol clocks; preserve all other CMU users. */
++	/* Match the S8 port: USI9 APB + protocol clock gates. */
 +	uint32_t pclk = great_ts_read(great_ts_cmu, 0x20ac);
 +	uint32_t sclk = great_ts_read(great_ts_cmu, 0x20b0);
 +	great_ts_write(great_ts_cmu, 0x20ac, pclk | gate);
 +	great_ts_write(great_ts_cmu, 0x20b0, sclk | gate);
++	/* Select the 26 MHz OSCCLK for USI09, matching the S8 loader. */
++	uint32_t user_mux = great_ts_read(great_ts_cmu, 0x0240);
++	great_ts_write(great_ts_cmu, 0x0240, user_mux & ~(1u << 4));
 +
 +	/* GPE3 pins 0/1: HSI2C function 2, no pull, as in Linux DTS. */
 +	uint32_t con = great_ts_read(great_ts_peric_gpio, 0x120);
@@ -50,14 +53,14 @@
 +	uint32_t pincon_after = great_ts_read(great_ts_peric_gpio, 0x120);
 +	printf("GREATLTE TOUCH: USI9 sysreg=%#x pclk=%#x sclk=%#x pincon=%#x\n",
 +	    mode, pclk_after, sclk_after, pincon_after);
-+	return (mode & 0xfu) == 1u && (pclk_after & gate) &&
++	return (mode & 0xfu) == 3u && (pclk_after & gate) &&
 +	    (sclk_after & gate) && (pincon_after & 0xffu) == 0x22u;
 +}
 +
  /* Exynos8895 HSI2C register access for the Y661 touchscreen. */
  static void
  great_ts_i2c_reset(void)
-@@ -302,12 +338,21 @@
+@@ -302,12 +341,21 @@
  	}
  	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
  	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);

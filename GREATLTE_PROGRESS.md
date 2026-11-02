@@ -965,3 +965,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   bytes matches the candidate hash exactly. Removed the temp file from TWRP
   `/tmp` and rebooted. Root mount, iOS startup, and subsequent deferred touch
   diagnostics remain to be observed.
+
+## 2026-11-02 — USI09 compare with S8 port
+
+- User reports the GreatLTE touch still shows the same `init stage=4 status=0
+  irq=0 ctl=0 int=0`; stage 4 is the first Y661 boot-status I2C read, and no
+  controller response has been recovered yet.
+- Cloned `hxhlb/ios-galaxy-s8` to `/tmp/ios-galaxy-s8-ref` and compared its
+  `shim/dreamlte/touch_probe.c` with GreatLTE patch 0232. Both target Exynos
+  8895 USI09/HSI2C23 at `0x108e0000`, but the S8 initializes SYSREG SW_CONF to
+  `3` (`I2C0_1`), enables both gate bits 21 and 20 for PCLK/SCLK, and clears
+  bit 4 of the USI user mux to select 26 MHz OSCCLK. GreatLTE used SW_CONF `1`,
+  gate bit 21 only, and did not set the user mux. Updated patch 0232 to match
+  these S8 controller settings. This is a code-derived likely cause, not yet
+  phone-verified; S8 has an S6SY761 while Note8 uses Y661.
+- Next: build the updated kernel, pack with the verified root boot arguments,
+  flash only BOOT from TWRP, and check whether the stage advances beyond 4.
