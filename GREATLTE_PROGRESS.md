@@ -810,3 +810,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `git apply` applies the new patch cleanly to the file produced by patch
   0230. Build and device verification are pending; do not claim the touch fix
   until physical input works.
+- **2026-11-02 I2C/event-fix build:** commit `8f88321525d2affa6f20831a1e5148ba183c1ee2`
+  built successfully in CI run `41410862495`; kernel SHA256
+  `7ec510e6adb20e9be7d972a642d077794d907abb446cbab617092c614a22c99c`.
+  Packed candidate `xnu-boot-greatlte-y661-i2c-41410862495.img` is
+  18,323,472 bytes, SHA256
+  `c872ac95d3a1ae1db1da197b792aa2877886fe39dfad02be99b6945e4282bda0`.
+  Stock BOOT and EFS backup hashes were rechecked. The connected phone is
+  still in iOS and ADB currently sees no device, so this candidate has not
+  been written. Next: boot TWRP, confirm `greatlte`, battery and BOOT size,
+  flash only BOOT p7, read it back, then assess the new persistent touch-stage
+  diagnostics and physical swipe.
