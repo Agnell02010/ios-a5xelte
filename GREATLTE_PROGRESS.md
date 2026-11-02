@@ -1091,3 +1091,16 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   location, confirming that XNU receives touch events after the delay change.
   The exact controller status line and swipe-to-unlock behavior have not yet
   been confirmed.
+- **2026-11-02 console-hidden UI trial:** to make the UI visible beneath the
+  diagnostics, repacked the same verified kernel with `a5fb_noconsole=1`.
+  GreatLTE defines `ARM64_BOARD_CONFIG_A5XELTE`, and the compiled framebuffer
+  code selects this boot argument on that path. The candidate SHA-256 is
+  `ab8b866bd876239c5ce5f7e1f101da514dcacc7e2d7d24bb1004b04a05251c43`
+  (18,323,472 bytes). TWRP again confirmed `greatlte`, 100% battery, and BOOT
+  `/dev/block/sda7`; saved the complete prior BOOT as
+  `backup/greatlte/BOOT-before-console-mute-20261102.img` (SHA-256
+  `8397c22bc7f1ad594214b28373aa80f22435f70ccc9298f2e816db2561d401c5`).
+  Wrote only BOOT, verified the candidate readback hash, and rebooted. The
+  user notes roughly 0.2 fps; the earlier counter measured framebuffer copies,
+  not necessarily actual UI presentation rate. The clean-screen UI and
+  gesture response remain pending.
