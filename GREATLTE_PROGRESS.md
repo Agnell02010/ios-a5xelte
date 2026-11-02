@@ -937,3 +937,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   Removed the temporary image from TWRP `/tmp` and rebooted. Confirm root/HFS
   and iOS startup first, then inspect the deferred `GREATLTE TOUCH` lines and
   swipe. Keep the full stable BOOT copy ready for rollback.
+- **2026-11-02 deferred touch boot regression report:** User reports the
+  deferred-init candidate stops at the same point as the prior USI9 build,
+  before reaching iOS. ADB sees no device. No new photo has been supplied for
+  this attempt, so the exact on-screen line is unconfirmed. The stable BOOT
+  copy is available and hash-verified at
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/boot-stable-before-deferred-20261102.img`
+  (41,943,040 bytes, SHA256
+  `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`).
+  Restore to BOOT only after TWRP ADB reconnects.
