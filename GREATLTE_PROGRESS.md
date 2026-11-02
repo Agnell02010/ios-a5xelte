@@ -727,6 +727,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `regulator-boot-on`; no PMIC writes were made.
   Committed the source/evidence update as `96f70a8` and pushed it to the
   dedicated branch `codex/greatlte-touch-id` on `Agnell02010/ios-a5xelte`.
-  The `xnu.yml` workflow dispatch was rejected because GitHub Actions is
-  disabled for that repository (`HTTP 422`); this revision has not been
-  compiled or installed. No phone partitions were written during this check.
+  The first `xnu.yml` dispatch was rejected because Actions was disabled
+  (`HTTP 422`). After the user enabled it, run `41403831939` succeeded in
+  17m52s on commit `973138d`; the Cortex-A53 no-LSE check passed. Its
+  `kernel.development.greatlte` SHA-256 is
+  `102ab8eac232bdb12298f245d4641a354831c6cbc39706c4e6724babb88816da`.
+  Prepared a BOOT candidate using the existing iOS root, native framebuffer,
+  no-sampler and `greatltetouch=1` args; it is 18,323,472 bytes with SHA-256
+  `f2054cb29509f8ed5d95af12b9225febcd369330f9bb24a226a67a316a425286`.
+  Before writing, ADB identified `greatlte` in TWRP, battery 63% and charging,
+  BOOT p7 size 41,943,040 bytes, local stock BOOT and EFS backups present, and
+  the installed p7 prefix matched the prior no-sampler image. Pushed the new
+  image to TWRP, verified its on-device hash, wrote only `/dev/block/sda7`,
+  then verified the readback prefix against the candidate hash and rebooted.
+  ADB is currently absent during the boot; the iOS screen and touch response
+  have not yet been reported. Build success is not touch-function evidence.
