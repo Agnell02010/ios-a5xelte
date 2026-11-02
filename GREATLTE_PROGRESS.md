@@ -773,3 +773,24 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   corrected-ID image with the pre-fix Y scale; no further partition writes
   were made. This confirms ADB can inspect recovery, but the iOS boot does not
   currently expose an ADB service or persistent pstore log.
+- **2026-11-02 Y-scale trial:** CI run `41407193521` succeeded for source
+  commit `a1427c82b73e45a20305309391016c19972d3973`. Kernel SHA256 is
+  `369156a84d08876d2bb9153bb22d11df02f767d5e9a8bb80c2ea3064f5c7c04b`;
+  packed BOOT candidate SHA256 is
+  `13018e462b61717e636da809816872887ab00fbb5106cbe58c29bbb74ecd3b5f`
+  (18,323,472 bytes). Flashed only `/dev/block/sda7`; first 18,323,472 bytes
+  read back with the same SHA256. User reports swipe remains unresponsive.
+- **2026-11-02 post-trial photos** (`IMG_20261102_085233367.jpg`,
+  `IMG_20261102_085712130.jpg`, `IMG_20261102_085814855.jpg`,
+  `IMG_20261102_085438701.jpg`): XNU reaches early boot and SpringBoard's
+  lock screen (4:06). Diagnostics include `SWEET HID: SweetHIDTouch open by
+  IOHIDEventServiceUserClient -> 1` and analogous buttons line. This proves
+  the HID user client can open its service; it does not prove a physical
+  touch event reached it. None of the four photos shows any `GREATLTE TOUCH:`
+  startup, controller, worker, or coordinate event message, nor
+  `SWEET HID: touch ...`. The Y-scale correction alone therefore did not
+  resolve touch. Current test is a miss; next investigation should determine
+  whether the early `greatlte_touch_start()` call runs and whether console
+  output can be captured during its init, then verify Exynos HSI2C transaction
+  sequencing and Y661 event format against the Samsung driver. Do not change
+  additional partition contents to add logging without separate authorization.
