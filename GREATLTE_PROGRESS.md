@@ -821,3 +821,11 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   been written. Next: boot TWRP, confirm `greatlte`, battery and BOOT size,
   flash only BOOT p7, read it back, then assess the new persistent touch-stage
   diagnostics and physical swipe.
+- **2026-11-02 I2C/event-fix BOOT trial installed:** ADB detected `greatlte`
+  in TWRP, battery 78%, BOOT p7 size 41,943,040 bytes; stock BOOT and EFS
+  backup hashes matched the recorded copies. Wrote only `/dev/block/sda7`
+  from candidate `xnu-boot-greatlte-y661-i2c-41410862495.img` and read back
+  18,323,472 bytes. Readback SHA256
+  `c872ac95d3a1ae1db1da197b792aa2877886fe39dfad02be99b6945e4282bda0`
+  matches the candidate. Reboot was issued; XNU touch diagnostics and physical
+  swipe result are pending.
