@@ -11,7 +11,7 @@
  static vm_offset_t great_ts_i2c;
  static vm_offset_t great_ts_alive;
  static vm_offset_t great_ts_cmu;
-+static vm_offset_t great_ts_speedy;
++static vm_offset_t great_ts_speedy_base;
  static vm_offset_t great_ts_sysreg;
  static vm_offset_t great_ts_peric_gpio;
  static int great_ts_sleep;
@@ -26,7 +26,7 @@
 +static int
 +great_ts_speedy(unsigned reg, bool write, uint8_t val)
 +{
-+	vm_offset_t b = great_ts_speedy;
++	vm_offset_t b = great_ts_speedy_base;
 +	const uint32_t cmd = (1u << 19) | (write ? (1u << 20) : 0) |
 +	    (1u << 15) | ((reg & 0xffu) << 7);
 +
@@ -74,11 +74,11 @@
  	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
  	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
  	great_ts_cmu = ml_io_map(GREAT_TS_PERIC1_CMU_PA, 0x3000);
-+	great_ts_speedy = ml_io_map(GREAT_TS_SPEEDY_PA, 0x1000);
++	great_ts_speedy_base = ml_io_map(GREAT_TS_SPEEDY_PA, 0x1000);
  	great_ts_sysreg = ml_io_map(GREAT_TS_PERIC1_SYS_PA, 0x2000);
  	great_ts_peric_gpio = ml_io_map(GREAT_TS_PERIC1_GPIO_PA, 0x1000);
  	if (!great_ts_i2c || !great_ts_alive || !great_ts_cmu ||
-+	    !great_ts_speedy ||
++	    !great_ts_speedy_base ||
  	    !great_ts_sysreg || !great_ts_peric_gpio) {
  		great_ts_stage = 2;
  		printf("GREATLTE TOUCH: MMIO map failed\n");
