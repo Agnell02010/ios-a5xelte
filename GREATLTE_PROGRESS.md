@@ -1141,3 +1141,13 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   then rebooted. Next observation should capture a visible
   `GREATLTE TOUCH: down id=... x=... y=...` line for taps in several known
   screen regions; post-boot result is pending.
+- **Photo evidence review (`IMG_20261102_184553963.jpg`):** the frame shows
+  two parsed touch-down reports (`id=0 x=1016 y=216` and `id=0 x=1019 y=241`)
+  followed by matching `SWEET HID: touch 0 down/up` reports. Thus the GreatLTE
+  controller read, event parser, and `sweet_hid_touch()` forwarding path are
+  active; console muting did not disable touch. The image shows the iOS
+  “Add New Wallpaper” panel still open after taps near its upper-right close
+  control. At least one tap reports X near the right edge but Y=216, so
+  screen-coordinate calibration or downstream UI responsiveness still needs
+  testing. No display offset/scale change should be guessed from this single
+  point.
