@@ -1,0 +1,22 @@
+diff --git a/iokit/Kernel/arm/hid/SweetHID.cpp b/iokit/Kernel/arm/hid/SweetHID.cpp
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -560,4 +560,14 @@
+-	if (was != down) {
+-		IOLog("SWEET HID: touch %d %s at %d,%d%s\n", finger, down ? "down" : "up", x, y,
+-		    fEdge[finger] ? " edge" : "");
+-	}
++	if (was != down) {
++#if defined(ARM64_BOARD_CONFIG_GREATLTE)
++		unsigned int clients;
++		IOLockLock(_clientLock);
++		clients = _clients ? _clients->getCount() : 0;
++		IOLockUnlock(_clientLock);
++		IOLog("SWEET HID: touch %d %s at %d,%d%s clients=%u\n",
++		    finger, down ? "down" : "up", x, y,
++		    fEdge[finger] ? " edge" : "", clients);
++#else
++		IOLog("SWEET HID: touch %d %s at %d,%d%s\n", finger, down ? "down" : "up", x, y,
++		    fEdge[finger] ? " edge" : "");
++#endif
++	}

@@ -1160,3 +1160,10 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   the controller's raw axes and confirms the current scale is plausible; it
   does not explain why SpringBoard remains unresponsive despite logged HID
   dispatch.
+- **Next diagnostic:** added patch 0235 to log the number of open clients on
+  the GreatLTE HID touch service for each touch down/up. `SweetHIDTouch` logs
+  currently prove that events reach its kernel method, but not that
+  `backboardd` opened the service. The new count will distinguish those cases
+  without changing touch coordinates or behavior. The patch is restricted to
+  GreatLTE and applies to the source from CI run `41497481480`; build and
+  device trial are pending.
