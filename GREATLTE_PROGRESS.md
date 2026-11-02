@@ -1013,3 +1013,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   followed by readback diagnostics. CI run `41480929170` was requested after
   the patch; the handset still runs the prior USI09 image pending a successful
   build and BOOT-only trial.
+- **2026-11-02 CI review:** run `41480929170` completed successfully, but its
+  log explicitly skipped `0234-greatlte-touch-pmic-power.patch` because the
+  hunk around `great_ts_sleep` did not apply after patches 0230–0233. The
+  resulting kernel does not contain the PMIC rail code and must not be used
+  to test that fix. Regenerated 0234 against the exact post-0233
+  `greatlte_touch.c` from this run's build-tree artifact; the patch now
+  applies cleanly and the result contains both `great_ts_speedy()` and
+  `great_ts_power_on()`. No device image has been flashed for this attempt.
+  Next: commit/push the corrected patch, build again, verify the run log shows
+  0234 applied and kernel strings include the PMIC diagnostics, then trial
+  only from TWRP with the stable full BOOT backup ready for rollback.

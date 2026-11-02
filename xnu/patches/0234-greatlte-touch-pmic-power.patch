@@ -1,13 +1,15 @@
+diff --git a/bsd/dev/greatlte_touch.c b/bsd/dev/greatlte_touch.c
 --- a/bsd/dev/greatlte_touch.c
 +++ b/bsd/dev/greatlte_touch.c
-@@ -22,5 +22,6 @@
+@@ -22,6 +22,7 @@
+ extern void sweet_hid_touch(int finger, int down, int x, int y);
  
  #define GREAT_TS_HSI2C_PA       0x108e0000u
 +#define GREAT_TS_SPEEDY_PA       0x15b50000u
  #define GREAT_TS_PERIC1_CMU_PA  0x10800000u
  #define GREAT_TS_PERIC1_SYS_PA  0x10820000u
  #define GREAT_TS_PERIC1_GPIO_PA 0x10980000u
-@@ -38,6 +39,8 @@
+@@ -39,9 +40,11 @@
  static vm_offset_t great_ts_i2c;
  static vm_offset_t great_ts_alive;
  static vm_offset_t great_ts_cmu;
@@ -16,10 +18,14 @@
  static vm_offset_t great_ts_peric_gpio;
  static int great_ts_sleep;
 +static void great_ts_wait(unsigned ms);
-@@ -59,6 +61,53 @@
+ static volatile unsigned great_ts_stage;
+ static volatile unsigned great_ts_last_status;
+ static bool great_ts_down[GREAT_TS_FINGERS];
+@@ -63,6 +66,54 @@
+ 	*(volatile uint32_t *)(base + off) = v;
  	__asm__ volatile("dsb osh" ::: "memory");
  }
- 
++
 +/* S2MPS17 is reached through Exynos SPEEDY, slave 1.  The Samsung Note8
 + * device tree names LDO34 (1.85 V) tsp_io and LDO35 (3.3 V) tsp_avdd.
 + * The stock Y661 driver enables IO, waits 1 ms, then enables AVDD. */
@@ -67,10 +73,10 @@
 +	return r34 == 0 && r35 == 0 && after34 == 0xee && after35 == 0xfc;
 +}
 +
+ 
  /* Enable Exynos8895 USI9 as HSI2C before touching its shared aperture. */
  static bool
- great_ts_hw_init(void)
-@@ -343,9 +393,11 @@
+@@ -341,15 +392,22 @@
  	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
  	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
  	great_ts_cmu = ml_io_map(GREAT_TS_PERIC1_CMU_PA, 0x3000);
@@ -82,7 +88,7 @@
  	    !great_ts_sysreg || !great_ts_peric_gpio) {
  		great_ts_stage = 2;
  		printf("GREATLTE TOUCH: MMIO map failed\n");
-@@ -356,5 +409,10 @@
+ 		return;
  	}
  	great_ts_stage = 3;
 +	if (!great_ts_power_on()) {
