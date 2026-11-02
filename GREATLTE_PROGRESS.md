@@ -1126,4 +1126,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   Wrote only BOOT, verified candidate readback, and rebooted. Userland touch
   behavior after the coordinate correction is pending. The reported low
   frame rate is a separate issue; the framebuffer copy counter alone does
-  not measure rendered UI FPS.
+  not measure   rendered UI FPS.
+- **2026-11-02 touch-event visibility trial:** confirmed the installed
+  coordinate-fix image still had `greatltetouch=1`; only
+  `a5fb_noconsole=1` muted on-panel console output after the UI frame, so
+  events were not disabled but their `GREATLTE TOUCH: down ...` reports were
+  hidden. Prepared the same CI-verified kernel with the console-mute argument
+  omitted and `greatltetouch=1` retained. TWRP confirmed `greatlte`, 98%
+  battery, and BOOT `/dev/block/sda7` (41,943,040 bytes); saved the full prior
+  BOOT to `backup/greatlte/BOOT-before-touch-debug-20261102.img` (SHA-256
+  `91c02febc604b217c68975463422aa3cfb7e9d25f5531b698bc128d2e08adfdd`).
+  Wrote only BOOT, verified the 18,323,472-byte candidate readback SHA-256
+  `9782483179033aeacb79dd4303b91a9cd01def953d354922c87dca6fa987a516`,
+  then rebooted. Next observation should capture a visible
+  `GREATLTE TOUCH: down id=... x=... y=...` line for taps in several known
+  screen regions; post-boot result is pending.
