@@ -864,8 +864,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   is 18,323,472 bytes, SHA256
   `26156c47909af370dba06da18bc2dbe4bffb8453352a8773aad5207892a28308`.
   Packager verified the stock BOOT backup hash against the recorded hash and
-  reported `candidate only; no device write`. ADB currently detects no device,
-  so this candidate is not installed yet. Next: connect the phone in TWRP,
-  verify its model, BOOT size, battery, and backup hashes, write only BOOT
-  `/dev/block/sda7`, read back and hash-check, then boot and inspect USI9/I2C
-  diagnostics and swipe response.
+  initially reported `candidate only; no device write`.
+- **2026-11-02 USI9 fix installed:** TWRP ADB identified `greatlte`, Galaxy
+  Note8, bootloader `N950FXXUGDVG5`; `/dev/block/platform/11120000.ufs/by-name/BOOT`
+  resolves to `/dev/block/sda7`, size 41,943,040 bytes; battery 78%, charging.
+  Stock BOOT and EFS backup hashes matched the recorded hashes. Saved the full
+  pre-trial BOOT to
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/boot-pre-usi9-20261102.img`
+  (41,943,040 bytes, SHA256
+  `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`). Wrote
+  only candidate `xnu-boot-greatlte-usi9-41415357990.img` to BOOT. Readback of
+  the first 18,323,472 bytes matched candidate SHA256
+  `26156c47909af370dba06da18bc2dbe4bffb8453352a8773aad5207892a28308`.
+  Removed the temporary file from TWRP `/tmp` and rebooted. New USI9/I2C
+  diagnostics and touch response are pending; this trial is not yet counted
+  as functional touch.
