@@ -752,3 +752,15 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   GPIO offset based on the superficially similar herolte address. Need a
   current screen photo showing `GREATLTE TOUCH` diagnostics to distinguish
   controller-start, event-read, and HID-delivery failures.
+- **2026-11-02 touch screenshots** (`IMG_20261102_082745872.jpg`,
+  `IMG_20261102_082850916.jpg`, `IMG_20261102_083011007.jpg`,
+  `IMG_20261102_083049463.jpg`): the first image shows `ifnet_attach` waiting
+  and then proceeding; the other images show the same lock screen at 4:04,
+  4:05, and 4:06, with the framebuffer diagnostic overlay and one
+  `PosterBoard` crash report. None shows a `GREATLTE TOUCH` or
+  `SWEET HID: touch` line. The user confirms the swipe is unresponsive. Code
+  comparison found a definite coordinate mismatch: `greatlte_touch.c` scaled
+  Y to 1920, while `SweetHIDTouch::touch()` normalizes by 2400 when
+  `sweetfb_native=1` (patch `0061`). Corrected GreatLTE Y scaling to 2400;
+  this is a necessary fix but is not yet device-verified and may not be the
+  only cause. A fresh XNU build and touch trial are required.

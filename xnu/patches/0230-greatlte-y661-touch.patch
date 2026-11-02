@@ -35,7 +35,7 @@ new file mode 100644
 + * Board wiring and command/event format follow the GreatLTE Samsung device
 + * tree and its sec_ts_y661 driver. The Exynos8895 HSI2C register block and
 + * 8-byte coordinate event layout match the S8's S6SY761 path; this file
-+ * reads the Y661 device ID through the Samsung READ_ID (0x52) command and never updates
++ * reads the Y661 device ID through Samsung READ_ID (0x52), and never updates
 + * controller firmware or NVM.
 + */
 +#if defined(ARM64_BOARD_CONFIG_GREATLTE)
@@ -196,9 +196,9 @@ new file mode 100644
 +	}
 +	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] >> 4);
 +	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] & 0xfu);
-+	/* iOS userland uses the donor's 1080x1920 HID coordinate space. */
++	/* sweetfb_native=1 exposes a 1080x2400 touch coordinate space. */
 +	x = x * 1080u / 4096u;
-+	y = y * 1920u / 4096u;
++	y = y * 2400u / 4096u;
 +	if (state == 1u || state == 2u) {
 +		if (!great_ts_down[id]) {
 +			printf("GREATLTE TOUCH: down id=%u x=%u y=%u\n", id, x, y);
