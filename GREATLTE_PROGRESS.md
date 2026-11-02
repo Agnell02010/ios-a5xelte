@@ -829,3 +829,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `c872ac95d3a1ae1db1da197b792aa2877886fe39dfad02be99b6945e4282bda0`
   matches the candidate. Reboot was issued; XNU touch diagnostics and physical
   swipe result are pending.
+- **2026-11-02 latest touch photo** (`IMG_20261102_093807199.jpg`): the
+  display is dark and the console overlay repeatedly reports
+  `GREATLTE TOUCH: init stage=4 status=0 irq=0 ctl=0 int=0`. This confirms
+  the probe still fails on the first Y661 boot-status command; it provides no
+  successful I2C read or physical touch event. The `ctl=0` / `int=0` values
+  are suspicious but do not by themselves distinguish a gated clock, an
+  incorrect USI mode/pin configuration, or an MMIO access issue. Linux DTS
+  confirms that HSI2C23 is USI9_0 at `0x108e0000`, sharing that address with
+  the alternate `serial_11` USI9 function, and lists a PERIC1 bus clock plus
+  `GATE_USI09`. The XNU patch currently maps and writes HSI2C registers
+  directly; it does not yet establish the USI mode/clock or configure the
+  SCL/SDA pins. Investigate these prerequisites against the Exynos source
+  before building another trial. The screenshot also shows unrelated
+  SpringBoard/PosterBoard and sandbox diagnostics; those do not explain the
+  touch probe failure.
