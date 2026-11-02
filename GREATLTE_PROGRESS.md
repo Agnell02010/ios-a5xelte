@@ -1037,3 +1037,23 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `742aae601c1468476a88cfc84c977783dc1372d4da187e0304b05fcc19f067a4`).
   Wrote only BOOT, verified the first 18,323,472 bytes against the candidate
   hash, and rebooted. The post-reboot display and touch result remain pending.
+- **2026-11-02 PMIC trial photos** (`IMG_20261102_181423090.jpg`,
+  `IMG_20261102_181446194.jpg`, `IMG_20261102_181523319.jpg`): the Note 8
+  reaches the iOS lock screen / SpringBoard and reports
+  `GREATLTE TOUCH: init stage=5 status=0x10 irq=0 ctl=0x49 int=0x42`.
+  This is concrete progress: unlike the prior stage-4 `status=0`,
+  the Y661 boot-status read now returns a valid controller status over I2C.
+  Samsung's GreatLTE Y661 header defines `SEC_TS_STATUS_BOOT_MODE=0x10` and
+  `SEC_TS_STATUS_APP_MODE=0x20`; therefore stage 5 is specifically the
+  controller's bootloader mode, not a working touch application. Samsung's
+  `sec_ts_firmware_update_on_probe()` detects `0x10` and updates from the
+  DTS firmware path `tsp_sec/y661_great.fw`. The XNU port currently performs
+  no firmware update, so it correctly stops before issuing touch commands.
+  Searched the local project, downloaded photos, and available local files;
+  no `y661_great.fw`/`sec_hero.fw` image is present. Do not send speculative
+  firmware-flash commands or treat `SENSE_ON` as a substitute for firmware.
+  Next step is to obtain the exact Y661 firmware from the owner's stock
+  Samsung firmware/system image or a read-only TWRP extraction, then port the
+  vendor update protocol with bounded retries and readback checks. The new
+  photos show stage 5, but touch still does not work and no further device
+  writes have been made since the verified BOOT trial.
