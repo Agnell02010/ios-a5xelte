@@ -879,3 +879,13 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   Removed the temporary file from TWRP `/tmp` and rebooted. New USI9/I2C
   diagnostics and touch response are pending; this trial is not yet counted
   as functional touch.
+- **2026-11-02 USI9 fix boot regression report:** The user reports the device
+  no longer reaches the Apple/iOS screen. Photo `IMG_20261102_101256378.jpg`
+  shows XNU kernel startup output ending at `Waiting on <dict ... IOMedia ...
+  Apple_HFS ...</dict>`; it therefore reached XNU startup but iOS userland has
+  not been observed on this attempt. No `GREATLTE TOUCH` initialization result
+  is visible in the photo. ADB currently sees no device. The exact 41,943,040
+  byte pre-trial BOOT image is saved off-device at
+  `/run/media/agnell0/Space1/greatlte-ios-root-20g/boot-pre-usi9-20261102.img`
+  (SHA256 `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`)
+  and is ready to restore to BOOT only once TWRP is reachable.
