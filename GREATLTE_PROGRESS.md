@@ -1151,3 +1151,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   screen-coordinate calibration or downstream UI responsiveness still needs
   testing. No display offset/scale change should be guessed from this single
   point.
+- **TWRP raw-coordinate cross-check:** in recovery, `/dev/input/event0` is
+  `sec_touchscreen` with X/Y ranges 0..4095. A center tap produced raw
+  `ABS_MT_POSITION_X=0x7b7` (1975) and
+  `ABS_MT_POSITION_Y=0x80d` (2061), followed by tracking/touch events. The
+  current XNU conversion maps that to approximately `(520,1207)` in its
+  1080x2400 logical space, consistent with the display center. This verifies
+  the controller's raw axes and confirms the current scale is plausible; it
+  does not explain why SpringBoard remains unresponsive despite logged HID
+  dispatch.
