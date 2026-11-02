@@ -1,0 +1,303 @@
+--- a/bsd/dev/greatlte_touch.c
++++ b/bsd/dev/greatlte_touch.c
+@@ -37,6 +37,8 @@
+ static vm_offset_t great_ts_i2c;
+ static vm_offset_t great_ts_alive;
+ static int great_ts_sleep;
++static volatile unsigned great_ts_stage;
++static volatile unsigned great_ts_last_status;
+ static bool great_ts_down[GREAT_TS_FINGERS];
+ static uint16_t great_ts_x[GREAT_TS_FINGERS];
+ static uint16_t great_ts_y[GREAT_TS_FINGERS];
+@@ -57,93 +59,98 @@
+ 	__asm__ volatile("dsb osh" ::: "memory");
+ }
+ 
+-/* Exynos8895 USI09 HSI2C, 26 MHz source and 400 kHz bus. */
++/* Exynos8895 HSI2C register access for the Y661 touchscreen. */
+ static void
+ great_ts_i2c_reset(void)
+ {
++	/* Samsung Exynos HSI2C AUTO-mode master setup. */
+ 	vm_offset_t b = great_ts_i2c;
+-	great_ts_write(b, 0x00, great_ts_read(b, 0x00) | (1u << 31));
+-	great_ts_write(b, 0x00, great_ts_read(b, 0x00) & ~(1u << 31));
+-	unsigned ftl = (great_ts_read(b, 0x40) >> 16) & 7u;
+-	unsigned temp = 26000000u / 400000u - (ftl + 3u) * 2u;
+-	unsigned div = temp / 512u;
+-	unsigned cyc = (temp + ((ftl + 3u) % (div + 1u)) * 2u) / (div + 1u) - 2u;
+-	unsigned low = cyc * 64u / 100u;
+-	unsigned high = cyc - low;
+-	great_ts_write(b, 0x60, low << 24 | low << 16 | low << 8);
+-	great_ts_write(b, 0x64, (low / 2u) << 24 | low << 8 | high);
+-	great_ts_write(b, 0x68, div << 16 | cyc);
+-	great_ts_write(b, 0x6c, low / 2u);
+-	great_ts_write(b, 0x48, great_ts_read(b, 0x48) & ~(1u << 31));
+-	great_ts_write(b, 0x00, 0x9u);
++	great_ts_write(b, 0x00, 0x80000009u); /* SW reset, master, I2C mode */
++	great_ts_write(b, 0x00, 0x00000009u);
++	great_ts_write(b, 0x48, 0);
++	great_ts_write(b, 0x60, 0x78787800u);
++	great_ts_write(b, 0x64, 0x3c007878u);
++	great_ts_write(b, 0x68, 0x000100f0u);
++	great_ts_write(b, 0x6c, 0x3cu);
+ 	great_ts_write(b, 0x08, 0xfu);
+-	great_ts_write(b, 0x40, great_ts_read(b, 0x40) | (1u << 31));
+-}
+-
+-/* INT_STATUS: bit 7 transfer done; bits 8-11 indicate I2C errors. */
+-static bool
+-great_ts_wait_done(void)
+-{
+-	for (unsigned us = 0; us < 20000u; us++) {
+-		uint32_t s = great_ts_read(great_ts_i2c, 0x24);
+-		if (s & 0xf80u) {
+-			great_ts_write(great_ts_i2c, 0x24, s);
+-			return (s & 0xf00u) == 0;
+-		}
+-		delay(1);
+-	}
+-	return false;
++	great_ts_write(b, 0x40, 0x80000000u); /* AUTO mode */
++	great_ts_write(b, 0x20, 0);
+ }
+ 
+ /* Send a command/data prefix and optionally read its response. */
+ static bool
+-great_ts_xfer(const uint8_t *w, unsigned wlen, uint8_t *r, unsigned rlen)
++great_ts_message(bool receive, uint8_t *bytes, unsigned count)
+ {
+ 	vm_offset_t b = great_ts_i2c;
+-	if ((!wlen && !rlen) || wlen > 32u || rlen > 256u) {
++	uint32_t last = 0;
++	bool xfer_done = false;
++	unsigned done = 0;
++
++	if (count == 0 || count > 255u) {
+ 		return false;
+ 	}
+ 	great_ts_write(b, 0x24, great_ts_read(b, 0x24));
++	great_ts_write(b, 0x04, 3u | (receive ? (1u << 4) : (1u << 16)));
+ 	great_ts_write(b, 0x70, GREAT_TS_ADDR << 10);
+-	great_ts_write(b, 0x20, 0xf80u);
+-	if (wlen) {
+-		great_ts_write(b, 0x04, 3u);
+-		great_ts_write(b, 0x00, 0x89u);
+-		great_ts_write(b, 0x44, (rlen ? 0u : (1u << 17)) | wlen | (1u << 31));
+-		for (unsigned i = 0; i < wlen; i++) {
+-			for (unsigned n = 0; n < 1000u &&
+-			    (great_ts_read(b, 0x30) & (1u << 7)); n++) {
++	great_ts_write(b, 0x00, 9u | (receive ? 0x40u : 0x80u));
++	great_ts_write(b, 0x20, 0xf80u | (receive ? 0x42u : 1u));
++	great_ts_write(b, 0x44, count | (receive ? 0x10000u : 0) |
++	    0x20000u | 0x80000000u);
++	for (unsigned us = 0; us < 50000u; us++) {
++		uint32_t irq = great_ts_read(b, 0x24);
++		if (irq) {
++			last |= irq;
++			great_ts_write(b, 0x24, irq);
++		}
++		if (irq & 0xf00u) {
++			break;
++		}
++		if (irq & 0x80u) {
++			xfer_done = true;
++		}
++		if (receive) {
++			while (done < count && ((great_ts_read(b, 0x30) >> 16) & 0x7fu)) {
++				bytes[done++] = (uint8_t)great_ts_read(b, 0x38);
++			}
++		} else {
++			while (done < count && !(great_ts_read(b, 0x30) & (1u << 7))) {
++				great_ts_write(b, 0x34, bytes[done++]);
++			}
++		}
++		if (done == count && (xfer_done || receive)) {
++			great_ts_write(b, 0x20, 0);
++			for (unsigned n = 0; n < 10000u; n++) {
++				if (!(great_ts_read(b, 0x50) & (1u << 17))) {
++					return true;
++				}
+ 				delay(1);
+ 			}
+-			great_ts_write(b, 0x34, w[i]);
+-		}
+-		if (!great_ts_wait_done()) {
+-			goto fail;
+-		}
+-	}
+-	if (rlen) {
+-		great_ts_write(b, 0x04, 3u);
+-		great_ts_write(b, 0x00, 0x49u);
+-		great_ts_write(b, 0x44, (1u << 16) | (1u << 17) | rlen | (1u << 31));
+-		for (unsigned i = 0; i < rlen; i++) {
+-			unsigned n = 0;
+-			while ((great_ts_read(b, 0x30) & (1u << 24)) && n++ < 20000u) {
+-				delay(1);
+-			}
+-			if (great_ts_read(b, 0x30) & (1u << 24)) {
+-				goto fail;
+-			}
+-			r[i] = (uint8_t)great_ts_read(b, 0x38);
+-		}
+-		if (!great_ts_wait_done()) {
+-			goto fail;
+-		}
+-	}
+-	great_ts_write(b, 0x00, 0x9u);
+-	return true;
+-fail:
++			break;
++		}
++		delay(1);
++	}
++	static unsigned errors_logged;
++	if (errors_logged++ < 12u) {
++		printf("GREATLTE TOUCH: %s %u/%u failed int=%#x trans=%#x fifo=%#x\n",
++		    receive ? "rx" : "tx", done, count, last,
++		    great_ts_read(b, 0x50), great_ts_read(b, 0x30));
++	}
++	great_ts_write(b, 0x20, 0);
+ 	great_ts_i2c_reset();
+ 	return false;
++}
++
++/* Samsung sec_ts sends the command, then reads the reply in a second message. */
++static bool
++great_ts_xfer(const uint8_t *w, unsigned wlen, uint8_t *r, unsigned rlen)
++{
++	if ((!wlen && !rlen) || wlen > 32u || rlen > 248u) {
++		return false;
++	}
++	if (wlen && !great_ts_message(false, (uint8_t *)w, wlen)) {
++		return false;
++	}
++	return !rlen || great_ts_message(true, r, rlen);
+ }
+ 
+ static bool
+@@ -164,8 +171,8 @@
+ 	if (id >= GREAT_TS_FINGERS) {
+ 		return;
+ 	}
+-	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] >> 4);
+-	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] & 0xfu);
++	unsigned x = ((unsigned)ev[1] << 4) | (ev[3] & 0xfu);
++	unsigned y = ((unsigned)ev[2] << 4) | (ev[3] >> 4);
+ 	/* sweetfb_native=1 exposes a 1080x2400 touch coordinate space. */
+ 	x = x * 1080u / 4096u;
+ 	y = y * 2400u / 4096u;
+@@ -197,18 +204,48 @@
+ }
+ 
+ static void
++great_ts_diag_thread(void *arg, wait_result_t result)
++{
++	(void)arg;
++	(void)result;
++	while (great_ts_stage > 0 && great_ts_stage < 8) {
++		uint32_t ctl = great_ts_i2c ? great_ts_read(great_ts_i2c, 0x00) : 0;
++		uint32_t is = great_ts_i2c ? great_ts_read(great_ts_i2c, 0x24) : 0;
++		uint32_t irq = great_ts_alive ? great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) : 0;
++		printf("GREATLTE TOUCH: init stage=%u status=%#x irq=%u ctl=%#x int=%#x\n",
++		    great_ts_stage, great_ts_last_status, (unsigned)!!(irq & 1u), ctl, is);
++		great_ts_wait(15000);
++	}
++}
++
++static void
+ great_ts_thread(void *arg, wait_result_t result)
+ {
+ 	uint8_t buf[GREAT_TS_EVENT_SIZE * 32u];
+ 	unsigned errors = 0;
++	unsigned polls = 0;
++	unsigned irq_skips = 0;
+ 	(void)arg;
+ 	(void)result;
+-	printf("GREATLTE TOUCH: event worker started\n");
++	printf("GREATLTE TOUCH: event worker started irq=%u ctl=%#x conf=%#x\n",
++	    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u),
++	    great_ts_read(great_ts_i2c, 0x00), great_ts_read(great_ts_i2c, 0x40));
+ 	for (;;) {
++		if (++polls == 1500u) {
++			polls = 0;
++			printf("GREATLTE TOUCH: poll irq=%u int=%#x fifo=%#x\n",
++			    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u),
++			    great_ts_read(great_ts_i2c, 0x24), great_ts_read(great_ts_i2c, 0x30));
++		}
+ 		if (great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u) {
+-			great_ts_wait(8);
+-			continue;
+-		}
++			if (++irq_skips < 4u) {
++				great_ts_wait(8);
++				continue;
++			}
++		} else {
++			irq_skips = 0;
++		}
++		irq_skips = 0;
+ 		if (!great_ts_cmd_read(GREAT_TS_READ_ONE, buf, GREAT_TS_EVENT_SIZE)) {
+ 			if (++errors <= 8u || !(errors & 255u)) {
+ 				printf("GREATLTE TOUCH: event read failed (%u)\n", errors);
+@@ -253,26 +290,41 @@
+ 	uint8_t sense = GREAT_TS_SENSE_ON;
+ 	thread_t thread;
+ 	int enabled = 1;
++	thread_t diag_thread;
+ 	(void)PE_parse_boot_argn("greatltetouch", &enabled, sizeof(enabled));
+ 	if (!enabled) {
+ 		printf("GREATLTE TOUCH: disabled\n");
+ 		return;
+ 	}
++	great_ts_stage = 1;
++	if (kernel_thread_start(great_ts_diag_thread, NULL, &diag_thread) == KERN_SUCCESS) {
++		thread_deallocate(diag_thread);
++	}
+ 	great_ts_i2c = ml_io_map(GREAT_TS_HSI2C_PA, 0x1000);
+ 	great_ts_alive = ml_io_map(GREAT_TS_ALIVE_PA, 0x1000);
+ 	if (!great_ts_i2c || !great_ts_alive) {
++		great_ts_stage = 2;
+ 		printf("GREATLTE TOUCH: MMIO map failed\n");
+ 		return;
+ 	}
++	great_ts_stage = 3;
+ 	great_ts_i2c_reset();
++	printf("GREATLTE TOUCH: probe start irq=%u hsi2c=%#x alive=%#x\n",
++	    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u),
++	    great_ts_read(great_ts_i2c, 0x00), great_ts_read(great_ts_i2c, 0x40));
++	great_ts_stage = 4;
+ 	if (!great_ts_cmd_read(0x55u, &status, 1u)) {
++		great_ts_stage = 4;
+ 		printf("GREATLTE TOUCH: boot status read failed\n");
+ 		return;
+ 	}
++	great_ts_last_status = status;
+ 	if (status != GREAT_TS_APP_MODE) {
++		great_ts_stage = 5;
+ 		printf("GREATLTE TOUCH: controller not in app mode (status %#x)\n", status);
+ 		return;
+ 	}
++	great_ts_stage = 6;
+ 	if (great_ts_cmd_read(0x52u, id, 3u)) {
+ 		printf("GREATLTE TOUCH: Y661 id %02x %02x %02x\n",
+ 		    id[0], id[1], id[2]);
+@@ -280,6 +332,7 @@
+ 		printf("GREATLTE TOUCH: device id read failed\n");
+ 	}
+ 	/* Preserve the controller's current features and ensure touch is enabled. */
++	great_ts_stage = 7;
+ 	if (!great_ts_cmd_read(GREAT_TS_TOUCH_FUNC, functions, sizeof(functions))) {
+ 		printf("GREATLTE TOUCH: function read failed\n");
+ 		return;
+@@ -295,8 +348,10 @@
+ 	printf("GREATLTE TOUCH: Y661 active, irq=%u\n",
+ 	    (unsigned)!!(great_ts_read(great_ts_alive, GREAT_TS_GPA1_DAT) & 1u));
+ 	if (kernel_thread_start(great_ts_thread, NULL, &thread) == KERN_SUCCESS) {
++		great_ts_stage = 8;
+ 		thread_deallocate(thread);
+ 	} else {
++		great_ts_stage = 7;
+ 		printf("GREATLTE TOUCH: thread start failed\n");
+ 	}
+ }

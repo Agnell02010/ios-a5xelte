@@ -794,3 +794,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   output can be captured during its init, then verify Exynos HSI2C transaction
   sequencing and Y661 event format against the Samsung driver. Do not change
   additional partition contents to add logging without separate authorization.
+- **2026-11-02 Y661 source comparison:** Comparing GreatLTE's Samsung
+  `sec_ts_y661` driver and Exynos8895 DTS with `0230-greatlte-y661-touch.patch`
+  found two implementation errors beyond the already fixed Y scale. The
+  packed `sec_ts_event_coordinate` stores X low bits in byte 3's low nibble and
+  Y low bits in its high nibble; the XNU parser had these reversed. The HSI2C
+  code also used a hand-built combined transfer with incorrect FIFO control
+  and did not follow the Samsung Exynos AUTO-mode transaction sequence. New
+  patch `0231-greatlte-hsi2c-touch-fix.patch` switches to the known HSI2C
+  master/FIFO setup used by the other Samsung port, sends command and response
+  as separate transactions, corrects the Y661 nibble order, and polls the
+  event stack periodically as a fallback if the GPIO interrupt state is wrong.
+  It adds a periodic init-stage and bus-status line, so a future photo can
+  distinguish MMIO mapping, boot-status, touch-function, and worker stages.
+  `git apply` applies the new patch cleanly to the file produced by patch
+  0230. Build and device verification are pending; do not claim the touch fix
+  until physical input works.
