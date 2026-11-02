@@ -854,4 +854,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   unconfigured. Patch `0232-greatlte-usi9-clock-mode.patch` now sets and
   read-verifies the mode, gates and pins before resetting HSI2C. The register
   addresses and bit definitions are source-derived, not yet confirmed by a
-  successful bus read on this phone. Build and device trial are pending.
+  successful bus read on this phone. The build succeeded below; device trial
+  is pending.
+- **2026-11-02 USI9 fix build and BOOT candidate:** CI run
+  `41415357990` succeeded for commit `6f4c69103df7352c3306f43afd29f53e9f6190a8`;
+  Cortex-A53 compatibility check passed. Kernel SHA256
+  `c4e55791d5c0cf44dd7cf1658f8531158719cbad0a22b06aed34fef063994e3c`.
+  Candidate `/run/media/agnell0/Space1/greatlte-ios-root-20g/xnu-kernel-41415357990/xnu-boot-greatlte-usi9-41415357990.img`
+  is 18,323,472 bytes, SHA256
+  `26156c47909af370dba06da18bc2dbe4bffb8453352a8773aad5207892a28308`.
+  Packager verified the stock BOOT backup hash against the recorded hash and
+  reported `candidate only; no device write`. ADB currently detects no device,
+  so this candidate is not installed yet. Next: connect the phone in TWRP,
+  verify its model, BOOT size, battery, and backup hashes, write only BOOT
+  `/dev/block/sda7`, read back and hash-check, then boot and inspect USI9/I2C
+  diagnostics and swipe response.
