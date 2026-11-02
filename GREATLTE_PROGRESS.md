@@ -742,3 +742,13 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   then verified the readback prefix against the candidate hash and rebooted.
   ADB is currently absent during the boot; the iOS screen and touch response
   have not yet been reported. Build success is not touch-function evidence.
+- **2026-11-02 first corrected-touch boot report:** the user reports that the
+  iOS lock screen appears, but a swipe from the bottom does not respond. This
+  confirms the boot/UI milestone survived the BOOT p7 update, but touch still
+  does not work in iOS. There is no new photo or XNU touch diagnostic output
+  available yet, and ADB is not exposed during this iOS boot. Source review of
+  the GreatLTE Exynos8895 pin-bank table confirms the current GPA1 DAT offset
+  `0x44` is correct (`GPA1` bank at `0x40`, DAT at `+4`); do not change the
+  GPIO offset based on the superficially similar herolte address. Need a
+  current screen photo showing `GREATLTE TOUCH` diagnostics to distinguish
+  controller-start, event-read, and HID-delivery failures.
