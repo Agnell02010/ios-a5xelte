@@ -889,3 +889,12 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   `/run/media/agnell0/Space1/greatlte-ios-root-20g/boot-pre-usi9-20261102.img`
   (SHA256 `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`)
   and is ready to restore to BOOT only once TWRP is reachable.
+- **2026-11-02 pre-trial BOOT restored:** TWRP again identified `greatlte`,
+  Galaxy Note8; BOOT `/dev/block/sda7` size 41,943,040 bytes; battery 79%,
+  charging. Restored the full 40 MiB image
+  `boot-pre-usi9-20261102.img` to BOOT only. Full readback
+  `boot-restored-readback-20261102.img` is 41,943,040 bytes and SHA256
+  `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`,
+  identical to the pre-trial backup. Removed its temporary copy from TWRP
+  `/tmp` and rebooted. Recovery of the prior iOS boot state is pending
+  physical observation; no claim that it reaches iOS is made yet.
