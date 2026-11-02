@@ -692,3 +692,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   (18,323,472 bytes); rebooted. The no-sampler boot result and PosterBoard
   exit cause remain pending. Touch is still unproven; the framebuffer counter
   alone is not a UI frame-rate test.
+- **2026-11-02 photo follow-up** (`IMG_20261101_235655169.jpg`,
+  `IMG_20261101_235719882.jpg`, `IMG_20261101_235745118.jpg`,
+  `IMG_20261101_235804402.jpg`, `IMG_20261101_235828785.jpg`,
+  `IMG_20261101_235844963.jpg`, `IMG_20261101_235927525.jpg`): the lock-screen
+  clock progresses from 4:02 through 4:05 with no Apple logo or fresh boot
+  banner in these frames. No `SMP --- sample` or SpringBoard/backboardd stack
+  dump is visible, confirming the `sweetsample=-` setting suppressed the
+  periodic sampler output. The final frame shows
+  `SWEET Sandbox: symptomsd privilege 10003 denied` and
+  `aggregated[186] crossed thread count high watermark (32); EXC_RESOURCE
+  suppressed; Internal diagnostics disabled`. XNU `priv.h` maps 10003 to
+  `PRIV_NET_PRIVILEGED_NETWORK_STATISTICS`; this is a denied network-statistics
+  request, not by itself proof of a reboot cause. The frames show the UI under
+  diagnostic overlay; touch remains untested. At the subsequent ADB check the
+  phone was in TWRP (`greatlte`), battery 53% and charging; BOOT p7 still
+  matched the no-sampler image hash, and `/sys/fs/pstore` had no records. The
+  reason it was back in TWRP is unknown from the photos.
