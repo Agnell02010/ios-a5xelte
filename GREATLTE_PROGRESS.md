@@ -1020,13 +1020,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   to test that fix. Regenerated 0234 against the exact post-0233
   `greatlte_touch.c` from this run's build-tree artifact; the patch now
   applies cleanly and the result contains both `great_ts_speedy()` and
-  `great_ts_power_on()`. No device image has been flashed for this attempt.
+  `great_ts_power_on()`. No image was flashed before the corrected build.
 - **Build verified:** corrected commit `db4d608` built successfully in [CI
   run 41484804120](https://github.com/Agnell02010/ios-a5xelte/actions/runs/41484804120).
   The `greatlte_touch.o` compile completed, and the produced kernel contains
   both PMIC diagnostic strings. Kernel SHA-256:
   `a43a4c58f36ddeaa5a2ce64b92ce7318b05c1257bfafc9440322f2a304ee27d4`.
-  This artifact is the first build verified to include 0234. It has not been
-  flashed; physical touch validation remains pending. Before a trial, confirm
-  the device is in TWRP and the known-good BOOT backup is available for
-  rollback; write only BOOT and verify its readback.
+  This artifact is the first build verified to include 0234. Packed with the
+  previously tested iOS command line into an 18,323,472-byte candidate
+  (SHA-256
+  `7b396a33d8e905cd4e7d5beee203280984d426ef4de9a42ff3713b71c6aa9592`).
+  Before writing, TWRP identified `greatlte` / Galaxy Note8; battery was 100%;
+  BOOT resolved to `/dev/block/sda7` and measured 41,943,040 bytes. Saved the
+  full pre-trial BOOT to
+  `backup/greatlte/BOOT-before-pmic-20261102.img` (SHA-256
+  `742aae601c1468476a88cfc84c977783dc1372d4da187e0304b05fcc19f067a4`).
+  Wrote only BOOT, verified the first 18,323,472 bytes against the candidate
+  hash, and rebooted. The post-reboot display and touch result remain pending.
