@@ -1057,3 +1057,11 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   vendor update protocol with bounded retries and readback checks. The new
   photos show stage 5, but touch still does not work and no further device
   writes have been made since the verified BOOT trial.
+- **Read-only firmware search in TWRP:** after the photo review, ADB again
+  identified `greatlte` / Galaxy Note8 in recovery. Mounted SYSTEM p15 and
+  VENDOR p10 with `ro,noload`, searched both complete trees for `y661_great.fw`,
+  `sec_hero.fw`, and `sec_ts` firmware, and found none. Both filesystems were
+  unmounted afterward; no partition was written. The exact controller
+  firmware therefore still needs to be supplied from a stock ROM/package or
+  another owner-provided source before a firmware-update implementation can
+  be tested.
