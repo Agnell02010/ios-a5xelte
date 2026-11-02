@@ -1160,10 +1160,20 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   the controller's raw axes and confirms the current scale is plausible; it
   does not explain why SpringBoard remains unresponsive despite logged HID
   dispatch.
-- **Next diagnostic:** added patch 0235 to log the number of open clients on
-  the GreatLTE HID touch service for each touch down/up. `SweetHIDTouch` logs
-  currently prove that events reach its kernel method, but not that
-  `backboardd` opened the service. The new count will distinguish those cases
-  without changing touch coordinates or behavior. The patch is restricted to
-  GreatLTE and applies to the source from CI run `41497481480`; build and
-  device trial are pending.
+- **HID client diagnostic build:** CI run `41508868712` completed green but
+  skipped patch 0235 because its zero-context hunk could not be applied by
+  `git apply`; its kernel must not be used for this diagnostic. Added
+  surrounding source context and verified the corrected patch applies to the
+  post-series `SweetHID.cpp` from run `41497481480`. Commit
+  `7cd31cf393becf360e34b2b92686d240a91d99eb` was pushed to
+  `codex/greatlte-touch-id`.
+- CI run `41514591865` completed successfully for that commit, including the
+  Cortex-A53 compatibility check. Its patch log applies
+  `0235-greatlte-hid-client-diagnostic.patch` without a skip; the buildtree's
+  `SweetHID.cpp` and `kernel.development.greatlte` both contain the
+  `clients=%u` diagnostic. Kernel SHA-256:
+  `01ca1c222570bc17b53e81b62c6bfc3a2b6fca91e1de5e77dd806833dc18027d`.
+  The run still skips patch 0234 at `bsd/dev/greatlte_touch.c:22`; this build
+  does not verify that power patch. No image was installed and no device
+  partitions were written. Use the diagnostic kernel only for the next
+  authorized BOOT-only trial, after reviewing the separate 0234 skip.
