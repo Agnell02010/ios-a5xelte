@@ -997,3 +997,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   BOOT match the candidate prefix SHA-256
   `5969dea6d4f71c9f7327d5e26fb5f4ef81968417a6080981c56df8f39ad474df`.
   Rebooted to test. Runtime result is pending.
+
+## 2026-11-02 — touch rail power sequence
+
+- Runtime photo from the S8-USI09 image still reports `GREATLTE TOUCH: init
+  stage=4 status=0 irq=0 ctl=0 int=0`; the first controller read still has no
+  response. The photo does not establish touch input.
+- Compared the Samsung GreatLTE kernel device tree and Y661 driver from
+  `corsicanu/android_kernel_samsung_universal8895`. The controller is
+  `sec,sec_ts` at HSI2C23 / `0x48`; its power routine explicitly enables
+  S2MPS17 LDO34 `tsp_io` at 1.85 V, waits 1 ms, then enables LDO35
+  `tsp_avdd` at 3.3 V. The DTS marks both boot-on, but the XNU port had not
+  verified or restored them after boot.
+- Patch 0234 adds an Exynos SPEEDY PMIC transfer and this exact rail sequence,
+  followed by readback diagnostics. CI run `41480929170` was requested after
+  the patch; the handset still runs the prior USI09 image pending a successful
+  build and BOOT-only trial.
