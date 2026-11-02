@@ -902,3 +902,13 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   pre-trial BOOT restore. This confirms the previous behavior returns, though
   the exact screen reached was not specified. The USI9 trial remains a
   regression against that baseline and touch is still unverified.
+- **2026-11-02 root/touch ordering review:** The touch startup call sits inside
+  `greatlte_ufs_init()`, which is reached by `greatlte_ufs_rootdev()` during
+  `IOFindBSDRoot`. That makes bus setup part of synchronous root-volume
+  discovery. Patch `0233-greatlte-defer-touch-init.patch` changes
+  `greatlte_touch_start()` to queue initialization on a separate kernel thread
+  with a three-second delay, so the UFS root lookup can return before the
+  optional touch probe touches the USI9/clock/pinctrl registers. This isolates
+  a touch-probe stall from root mounting; it does not establish that the
+  register values or Y661 transaction are correct. Build and trial are
+  pending.

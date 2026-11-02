@@ -1,0 +1,40 @@
+--- a/bsd/dev/greatlte_touch.c
++++ b/bsd/dev/greatlte_touch.c
+@@ -318,8 +318,8 @@
+ 	}
+ }
+ 
+-void
+-greatlte_touch_start(void)
++static void
++greatlte_touch_initialize(void)
+ {
+ 	uint8_t status = 0, id[3] = {0}, functions[2] = {0};
+ 	uint8_t set_func[3] = { GREAT_TS_TOUCH_FUNC, 0, 0 };
+@@ -400,4 +400,26 @@
+ 		printf("GREATLTE TOUCH: thread start failed\n");
+ 	}
+ }
++
++static void
++great_ts_init_thread(void *arg, wait_result_t result)
++{
++	(void)arg;
++	(void)result;
++	/* Let the synchronous UFS root lookup and initial mount finish first. */
++	great_ts_wait(3000);
++	greatlte_touch_initialize();
++}
++
++void
++greatlte_touch_start(void)
++{
++	thread_t init_thread;
++	printf("GREATLTE TOUCH: initialization deferred until after root lookup\n");
++	if (kernel_thread_start(great_ts_init_thread, NULL, &init_thread) == KERN_SUCCESS) {
++		thread_deallocate(init_thread);
++	} else {
++		printf("GREATLTE TOUCH: init worker start failed\n");
++	}
++}
+ #endif /* ARM64_BOARD_CONFIG_GREATLTE */
