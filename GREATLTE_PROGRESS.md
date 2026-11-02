@@ -898,3 +898,7 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   identical to the pre-trial backup. Removed its temporary copy from TWRP
   `/tmp` and rebooted. Recovery of the prior iOS boot state is pending
   physical observation; no claim that it reaches iOS is made yet.
+- **2026-11-02 restore confirmation:** The user reports “si torna” after the
+  pre-trial BOOT restore. This confirms the previous behavior returns, though
+  the exact screen reached was not specified. The USI9 trial remains a
+  regression against that baseline and touch is still unverified.
