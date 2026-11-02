@@ -981,3 +981,19 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   phone-verified; S8 has an S6SY761 while Note8 uses Y661.
 - Next: build the updated kernel, pack with the verified root boot arguments,
   flash only BOOT from TWRP, and check whether the stage advances beyond 4.
+
+### S8 USI09 configuration trial installed
+
+- CI run `41440727742` completed successfully for commit `02646a8`. The
+  resulting kernel was packed with the verified iOS USERDATA command line
+  into `xnu-boot-greatlte-usi9-s8fix.img` (18,323,472 bytes, SHA-256
+  `9219adf84c0a168ab89e8347431ac9ae034c4d4b32938e237760b7be7acbf222`).
+- In TWRP, confirmed `greatlte` / Galaxy Note8, BOOT resolves to
+  `/dev/block/sda7` (41,943,040 bytes), and battery was 100% Full. Saved the
+  previous complete BOOT as
+  `boot-before-usi9-s8fix-20261102.img` (SHA-256
+  `6d468c4e38921445ffc07be3695b02f6df0cba0eae2e7b95bd7d900c075299df`).
+- Wrote only `/dev/block/sda7`. The first 18,321,408 bytes read back from
+  BOOT match the candidate prefix SHA-256
+  `5969dea6d4f71c9f7327d5e26fb5f4ef81968417a6080981c56df8f39ad474df`.
+  Rebooted to test. Runtime result is pending.
