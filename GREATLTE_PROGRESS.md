@@ -946,3 +946,22 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   (41,943,040 bytes, SHA256
   `4bb22b2c8397d415b7e2373e7d493eb622435f4d6c894471e253e9c568370118`).
   Restore to BOOT only after TWRP ADB reconnects.
+- **2026-11-02 missing-root-arguments cause found and corrected:** ADB became
+  available in TWRP. Inspection of the installed deferred candidate's embedded
+  command line showed it used the packager default
+  `debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam -noprogress`,
+  which omits `rd=ufsroot0 ufsroot=USERDATA`; this directly explains XNU's
+  wait for `Apple_HFS`. The pre-deferred stable BOOT image contains the
+  complete previously tested command line, including root/UFS parameters,
+  code-signing flags, `sweetfb_native=1`, touch and sampler args. Repacked the
+  same deferred-init kernel with that exact command line as
+  `xnu-boot-greatlte-touch-deferred-rootfix.img` (18,323,472 bytes, SHA256
+  `8abe71c1c869fb4f8f39c8900ff6c242c2f276023e63947c79261697f01fa167`).
+  TWRP verified `greatlte`, Galaxy Note8, BOOT p7 `/dev/block/sda7` at
+  41,943,040 bytes and battery 100%/Full. Saved the currently installed
+  root-argument-missing BOOT in full (SHA256
+  `c3271d2892000a5f6bb6c23775faca95403136b924d76b285deb881818d5e872`).
+  Wrote the corrected candidate to BOOT only; readback of its first 18,323,472
+  bytes matches the candidate hash exactly. Removed the temp file from TWRP
+  `/tmp` and rebooted. Root mount, iOS startup, and subsequent deferred touch
+  diagnostics remain to be observed.
