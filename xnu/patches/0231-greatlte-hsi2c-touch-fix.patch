@@ -176,12 +176,6 @@
  }
  
  static bool
-@@ -168 +175 @@
--	/* iOS userland uses the donor's 1080x1920 HID coordinate space. */
-+	/* sweetfb_native=1 exposes a 1080x2400 touch coordinate space. */
-@@ -170 +177 @@
--	y = y * 1920u / 4096u;
-+	y = y * 2400u / 4096u;
 @@ -197,18 +204,48 @@
  }
  

@@ -1177,3 +1177,18 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   does not verify that power patch. No image was installed and no device
   partitions were written. Use the diagnostic kernel only for the next
   authorized BOOT-only trial, after reviewing the separate 0234 skip.
+- **2026-11-04 touch report:** the user reports that touch no longer works on
+  the latest installed candidate. The exact BOOT image/kernel hash and whether
+  the report means no controller events or events that do not operate iOS are
+  unknown; no new device log or photo was supplied. The last explicitly
+  recorded BOOT trial used a repack of the 414974 kernel; run 415145's
+  diagnostic kernel was not recorded as installed.
+- **Build-series cause found:** run 414974 skipped patches 0231, 0232 and 0234.
+  The coordinate comment/scale hunk in 0231 had become redundant because patch
+  0230 already contains the corrected 1080x2400 mapping. Since the patch
+  applier skips a patch when any hunk fails, this also omitted the HSI2C
+  transfer fix, USI9 setup and touch-rail sequence from that kernel. Removed
+  only the stale coordinate hunks and verified the 0231-0234 sequence applies
+  in order to the exact 414974 CI source. This repairs patch/build
+  correspondence; it does not prove a device-side touch fix. No image was
+  installed or partition written during this investigation.
