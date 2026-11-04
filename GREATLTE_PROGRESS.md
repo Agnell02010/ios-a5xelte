@@ -1228,3 +1228,14 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   with `MACHINE_CONFIG=GREATLTE`, `KERNEL_CONFIG=DEVELOPMENT`, and
   `MACOS_VERSION=13.5`. Its job remains queued; no build result or kernel
   artifact is available yet. No phone or partition action was taken.
+- **User observation after safe capture request:** while pressing the screen
+  on the currently installed image, no touch diagnostic lines appear. The
+  most likely installed candidate from the BOOT chronology is the
+  `97824831...` touch-event visibility image, which retained
+  `greatltetouch=1`; an earlier photo from that trial had shown both
+  `GREATLTE TOUCH` and `SWEET HID` lines. The new report therefore indicates
+  that touch reports are not currently visible during presses, but without a
+  photo it cannot distinguish missing controller/parser events from console
+  output not being visible. It does not establish whether an IOHID userland
+  client is open. Do not write/flash anything; the `clients=%u` diagnostic
+  kernel was not installed.
