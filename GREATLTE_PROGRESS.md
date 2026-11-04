@@ -1192,3 +1192,26 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   in order to the exact 414974 CI source. This repairs patch/build
   correspondence; it does not prove a device-side touch fix. No image was
   installed or partition written during this investigation.
+- CI run `41851695219` for commit `8cde514` failed before the XNU patch series
+  was applied: the external BearSSL Git endpoint returned HTTP 502 in
+  `0020-stage-bearssl.sh`. No buildtree or kernel was produced, so this run
+  provides no patch-application or build verification. The run was requeued;
+  its result is pending.
+- **S9 cross-port reference (source review, not GreatLTE device evidence):**
+  the recent port is `Scion-Project/hakios-starlte` `main` at
+  `5798c9d65908d54f7bba14c0a3adc8213adb81c6`; its common XNU repository is
+  `Scion-Project/hackios-xnu-kernel` `main` at
+  `ff5e8e4a1b0352d60cd3a04b6e0d4c17ff2bb5f8`. Its current major port
+  additions are PR #48 (8-core support, merge `abd6ae53`), PR #51 (optional
+  TEE probing, merge `22d25c86`), and PR #52 (optional MFC video decode,
+  merge `5798c9d6`); these are not touch fixes. The S9 touch reference is
+  `drivers/input/hakios.s6sy761.c` and
+  `drivers/core/hakios.exynos_hsi2c.c`: commits `40247114` (live-session
+  touch fixes), `027dd2bd` (touch-read retry), and `357b437f` (thread
+  priority and event tracing). PR #158 / commit `1ed51df8` adds CPU-frequency
+  boosts after touch/frame events, a performance change rather than an input
+  path fix. The S9 is Exynos 9810 with S6SY761 on USI03 and its own
+  `/dev/hakios-touch` interface; GreatLTE is Exynos 8895 with Y661 on USI09
+  routed through `SweetHIDTouch`/IOHIDEventService. Read-retry and tracing
+  patterns are useful references, but the S9 controller setup, registers,
+  power sequence and userland interface are not directly transplantable.
