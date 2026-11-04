@@ -1215,3 +1215,16 @@ storage (Exynos 8895 UFS) and then the iOS root image.
   routed through `SweetHIDTouch`/IOHIDEventService. Read-retry and tracing
   patterns are useful references, but the S9 controller setup, registers,
   power sequence and userland interface are not directly transplantable.
+- The user clarifies that the image now installed is the last one reinstalled
+  during this bring-up. By the chronological BOOT records above, the last
+  documented reinstall was the 2026-11-02 touch-event visibility trial:
+  packed candidate SHA-256
+  `9782483179033aeacb79dd4303b91a9cd01def953d354922c87dca6fa987a516`.
+  This is the best-supported identification, though the user did not provide
+  a hash or a fresh readback. The later HID-client diagnostic kernel from CI
+  run `41514591865` was not installed. No new touch screen/log output has
+  been supplied.
+- Fresh current-HEAD CI run `41856008466` (commit `50f8e0a`) was dispatched
+  with `MACHINE_CONFIG=GREATLTE`, `KERNEL_CONFIG=DEVELOPMENT`, and
+  `MACOS_VERSION=13.5`. Its job remains queued; no build result or kernel
+  artifact is available yet. No phone or partition action was taken.
